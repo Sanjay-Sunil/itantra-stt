@@ -164,7 +164,7 @@ class Scheduler:
                 enc = self.stages.encode(seg)
                 lid = lid_future.result()  # C (join)
                 self.stages.decode(seg, lid, enc)  # D
-            except Exception as e:  # one bad segment must not stop the stream
+            except Exception as e:  # noqa: BLE001 - one bad segment must not stop the stream
                 seg.flags.append(FLAG_ERROR)
                 self.events.put({"event": "error", "seq": seg.seq, "stage": "asr", "error": repr(e)})
                 self.reorder.put(seg)
@@ -188,7 +188,7 @@ class Scheduler:
                 return
             try:
                 self.stages.translate(seg, seg.target_language)  # F
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 seg.flags.append(FLAG_ERROR)
                 self.events.put({"event": "error", "seq": seg.seq, "stage": "mt", "error": repr(e)})
             self.reorder.put(seg)

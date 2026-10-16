@@ -91,11 +91,13 @@ class IndicConformerASR:
             return self._post[lang]
 
     # ---------------------------------------------------------------- encoder (shared)
-    def encode(self, audio: np.ndarray) -> Encoded:
+    def encode(self, audio: np.ndarray, run_options=None) -> Encoded:
+        """run_options: onnxruntime.RunOptions; setting .terminate = True from another thread aborts the run."""
         feats = log_mel(audio, INDIC_CONFORMER_MEL)
         out, length = self.encoder.run(
             ["outputs", "encoded_lengths"],
             {"audio_signal": feats[None], "length": np.array([feats.shape[1]], dtype=np.int64)},
+            run_options,
         )
         return Encoded(out=out, length=int(length[0]))
 

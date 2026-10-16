@@ -1,0 +1,88 @@
+{
+ "tier": "int4mixed",
+ "mode": "rnnt",
+ "languages": [
+  "hi",
+  "en",
+  "ta"
+ ],
+ "target": "en",
+ "audio_s": 62.7,
+ "load_and_warmup_s": 6.9,
+ "segments": [
+  {
+   "seq": 0,
+   "lang": "en",
+   "audio_s": 7.68,
+   "mt": false,
+   "time_to_text_ms": 1131,
+   "flags": []
+  },
+  {
+   "seq": 1,
+   "lang": "hi",
+   "audio_s": 9.38,
+   "mt": true,
+   "time_to_text_ms": 1650,
+   "flags": []
+  },
+  {
+   "seq": 2,
+   "lang": "en",
+   "audio_s": 10.37,
+   "mt": false,
+   "time_to_text_ms": 1372,
+   "flags": []
+  },
+  {
+   "seq": 3,
+   "lang": "ta",
+   "audio_s": 4.48,
+   "mt": true,
+   "time_to_text_ms": 1082,
+   "flags": []
+  },
+  {
+   "seq": 4,
+   "lang": "ta",
+   "audio_s": 5.15,
+   "mt": true,
+   "time_to_text_ms": 1035,
+   "flags": []
+  },
+  {
+   "seq": 5,
+   "lang": "ta",
+   "audio_s": 2.14,
+   "mt": true,
+   "time_to_text_ms": 566,
+   "flags": []
+  },
+  {
+   "seq": 6,
+   "lang": "ta",
+   "audio_s": 4.58,
+   "mt": true,
+   "time_to_text_ms": 1102,
+   "flags": []
+  },
+  {
+   "seq": 7,
+   "lang": "ta",
+   "audio_s": 5.09,
+   "mt": true,
+   "time_to_text_ms": 1164,
+   "flags": []
+  }
+ ],
+ "time_to_text_ms_same_language": {
+  "median": 1251,
+  "max": 1372
+ },
+ "time_to_text_ms_with_mt": {
+  "median": 1092,
+  "max": 1650
+ },
+ "peak_rss_mb": 1726,
+ "command": "python scripts/benchmark_engine.py data/demo/mixed_en_hi_ta.wav --langs hi en ta --target en --tier int4mixed --mode rnnt"
+}

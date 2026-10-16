@@ -18,6 +18,13 @@ from .segment import FLAG_LOW_CONFIDENCE, FLAG_UNEXPECTED_LANGUAGE, INDIC, LANGU
 from .vad import Segmenter, SileroVAD, VADConfig
 
 FLAG_NO_ASR = "asr_unavailable"
+EN_CANCEL_CONFIDENCE = 0.8  # LID confidence for English above which the parallel Indic encoder is cancelled
+
+
+def _new_run_options():
+    import onnxruntime as ort
+
+    return ort.RunOptions()
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -48,6 +55,8 @@ class _Stages:
         self.english_model = None
         self.mt = None
         self.load_errors: dict[str, str] = {}
+        self._runs: dict[int, Any] = {}  # seq -> onnxruntime.RunOptions of an in-flight encoder run
+        self._run_lock = threading.Lock()
         if not cfg.manual_language and len(cfg.languages) > 1:
             self._try("lid_model", lambda: _load_lid(md, cfg.threads_per_model, cfg.lid_tier))
         if any(lang in INDIC for lang in cfg.languages):
@@ -65,8 +74,16 @@ class _Stages:
         except Exception as e:  # noqa: BLE001 - engine keeps running with what is available
             self.load_errors[name] = repr(e)
 
-    # B: LID branch
+    # B: LID branch. If it decides English, it cancels the (now useless) Indic encoder run for this segment.
     def lid(self, seg: Segment) -> Any:
+        res = self._lid_decide(seg)
+        if res[0] == "en" and res[1] >= EN_CANCEL_CONFIDENCE and self.indic_model is not None:
+            with self._run_lock:
+                ro = self._runs.setdefault(seg.seq, _new_run_options())
+                ro.terminate = True
+        return res
+
+    def _lid_decide(self, seg: Segment) -> Any:
         cfg = self.cfg
         if cfg.manual_language:
             return (cfg.manual_language, 1.0, {}, 0.0)
@@ -101,8 +118,21 @@ class _Stages:
     def encode(self, seg: Segment) -> Any:
         if self.indic_model is None:
             return None
+        with self._run_lock:
+            ro = self._runs.setdefault(seg.seq, _new_run_options())
         t = time.perf_counter()
-        enc = self.indic_model.encode(seg.audio)
+        try:
+            if ro.terminate:  # LID already said English
+                return None
+            enc = self.indic_model.encode(seg.audio, run_options=ro)
+        except Exception:  # ORT raises on a terminated run; re-raised below otherwise
+            if ro.terminate:
+                seg.timings["encoder_cancelled"] = round((time.perf_counter() - t) * 1000, 1)
+                return None
+            raise
+        finally:
+            with self._run_lock:
+                self._runs.pop(seg.seq, None)
         seg.timings["encoder"] = round((time.perf_counter() - t) * 1000, 1)
         return enc
 

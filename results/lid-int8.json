@@ -1,0 +1,34 @@
+{
+ "name": "lid-int8",
+ "onnx": "ambernet.int8.onnx",
+ "candidates": [
+  "hi",
+  "gu",
+  "mr",
+  "kn",
+  "ml",
+  "ta",
+  "te",
+  "bn",
+  "en"
+ ],
+ "accuracy": {
+  "hi": 100.0,
+  "gu": 100.0,
+  "mr": 95.0,
+  "kn": 100.0,
+  "ml": 100.0,
+  "ta": 100.0,
+  "te": 100.0,
+  "bn": 100.0,
+  "en": 90.0
+ },
+ "mean_accuracy": 98.33,
+ "avg_ms": 2646,
+ "confusions": {
+  "mr->hi": 1,
+  "en->te": 1,
+  "en->bn": 1
+ },
+ "command": "python scripts/evaluate_lid.py --onnx ambernet.int8.onnx --name lid-int8 --candidates hi gu mr kn ml ta te bn en"
+}

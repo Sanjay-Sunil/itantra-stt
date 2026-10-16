@@ -44,9 +44,10 @@ def dir_mb(p: Path) -> float:
 
 
 @st.cache_resource(show_spinner=False, max_entries=2)
-def get_engine(langs: tuple[str, ...], target: str | None, manual: str | None, workers: int) -> Engine:
-    return Engine(EngineConfig(languages=list(langs), target_language=target,
-                               manual_language=manual, asr_workers=workers))
+def get_engine(langs: tuple[str, ...], target: str | None, manual: str | None, workers: int,
+               tier: str, mode: str) -> Engine:
+    return Engine(EngineConfig(languages=list(langs), target_language=target, manual_language=manual,
+                               asr_workers=workers, asr_tier=tier, asr_mode=mode))
 
 
 def stop_running_source() -> None:
@@ -118,6 +119,10 @@ lid_mode = st.sidebar.radio("Language detection", ["Auto (LID)", "Manual"], hori
 manual = None
 if lid_mode == "Manual":
     manual = st.sidebar.selectbox("Spoken language", langs or CODES, format_func=lambda c: NAME[c])
+tier = st.sidebar.radio("Model tier", ["int8", "int4mixed"], horizontal=True,
+                        format_func={"int8": "INT8 (high-end)", "int4mixed": "INT4-mixed (low-end)"}.get)
+mode = st.sidebar.radio("Indic decoder", ["rnnt", "ctc"], horizontal=True,
+                        format_func={"rnnt": "RNN-T (accurate)", "ctc": "CTC (fast)"}.get)
 workers = st.sidebar.slider("ASR workers", 1, 3, 2)
 
 if not langs:
@@ -126,26 +131,23 @@ if not langs:
 
 with st.spinner("Loading models (first time only)…"):
     t = time.perf_counter()
-    engine = get_engine(tuple(langs), target, manual, workers)
+    engine = get_engine(tuple(langs), target, manual, workers, tier, mode)
 
 with st.sidebar.expander("Models on this device", expanded=False):
-    for name in ["silero-vad", "lid-ambernet", "indic-conformer", "whisper-tiny-en",
+    for name in ["silero-vad", "lid-ambernet", f"indic-conformer-{tier}", "whisper-tiny-en",
                  "mt-indic-indic", "mt-indic-en", "mt-en-indic"]:
         mb = dir_mb(MODELS / name)
         st.write(f"{'✅' if mb > 1 else '❌'} `{name}` — {mb:.0f} MB on disk")
     st.write(f"Process RSS: **{rss_mb():.0f} MB**")
     st.write(f"Engine load + warm-up: {engine.load_ms / 1000:.1f} s")
 
-if engine.load_errors.get("indic_model"):
-    st.warning("Indic ASR (IndicConformer) is not installed yet — Indic speech will be detected and tagged "
-               "but not transcribed. English works end-to-end.", icon="⚠️")
 for k, v in engine.load_errors.items():
-    if k != "indic_model":
-        st.error(f"{k}: {v}")
+    st.error(f"{k}: {v}")
 
 # ---------------------------------------------------------------- main
 st.title("Speech → text in one language")
-st.caption("Pipeline: mic → Silero VAD → AmberNet LID ‖ ASR encoder → decode → IndicTrans2 MT → reorder buffer")
+st.caption("Pipeline: mic → Silero VAD → AmberNet LID ‖ IndicConformer encoder → RNN-T/CTC decode "
+           "(Whisper for English) → IndicTrans2 MT → reorder buffer · all models INT8 or lower")
 
 tab_mic, tab_browser, tab_file = st.tabs(["🎤 Device mic (live)", "📱 Record in browser", "📁 File / samples"])
 

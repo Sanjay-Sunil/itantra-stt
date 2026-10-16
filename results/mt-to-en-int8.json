@@ -1,0 +1,121 @@
+{
+ "tier": "int8",
+ "per_language": {
+  "hi": {
+   "n": 20,
+   "text_bleu": 37.1,
+   "text_chrf++": 64.3,
+   "speech_bleu": 33.8,
+   "speech_chrf++": 61.2,
+   "example": {
+    "ref": "You may also wish to consult the advice of governments other than your own, but their advice is designed for their citizens.",
+    "text": "In addition to your own government, you can consult governments in other countries, although their advice is aimed at their citizens.",
+    "speech": "In addition to your government, you can consult governments in other countries, although their advice is aimed at their citizens."
+   }
+  },
+  "gu": {
+   "n": 20,
+   "text_bleu": 37.9,
+   "text_chrf++": 63.3,
+   "speech_bleu": 31.1,
+   "speech_chrf++": 58.7,
+   "example": {
+    "ref": "He did not set a figure for the cuts, saying they will be made based on China's economic output.",
+    "text": "He did not set a figure for the cuts, saying they would be determined by China's economic output.",
+    "speech": "He did not set a figure for the cuts and said they would be determined by China's economic output."
+   }
+  },
+  "mr": {
+   "n": 20,
+   "text_bleu": 33.6,
+   "text_chrf++": 60.2,
+   "speech_bleu": 23.9,
+   "speech_chrf++": 54.1,
+   "example": {
+    "ref": "Police superintendent Chandra Shekhar Solanki said the accused appeared in court with covered faces.",
+    "text": "Superintendent of Police Chandra Shekhar Solanki said the accused appeared in court with his face covered.",
+    "speech": "Superintendent of Police Chandrashekhar Solanki said the accused appeared in court with his face covered."
+   }
+  },
+  "kn": {
+   "n": 19,
+   "text_bleu": 34.5,
+   "text_chrf++": 61.6,
+   "speech_bleu": 30.2,
+   "speech_chrf++": 58.7,
+   "example": {
+    "ref": "But, after losing the captain's wicket India only made 36 runs loosing 7 wickets to end the innings.",
+    "text": "But after losing the captain's wicket, India finished their innings at just 36 runs for the loss of 7 wickets",
+    "speech": "But after losing the captain's wicket, India finished their innings at just thirty-six runs for the loss of seven wickets"
+   }
+  },
+  "ml": {
+   "n": 20,
+   "text_bleu": 40.0,
+   "text_chrf++": 64.0,
+   "speech_bleu": 34.4,
+   "speech_chrf++": 61.3,
+   "example": {
+    "ref": "He did not set a figure for the cuts, saying they will be made based on China's economic output.",
+    "text": "He did not set a film for the wounds and said they would be made based on China's economic output.",
+    "speech": "He has not set a film for the wounds and said they will be made based on China's economic output."
+   }
+  },
+  "ta": {
+   "n": 20,
+   "text_bleu": 32.1,
+   "text_chrf++": 55.7,
+   "speech_bleu": 22.1,
+   "speech_chrf++": 51.1,
+   "example": {
+    "ref": "You may also wish to consult the advice of governments other than your own, but their advice is designed for their citizens.",
+    "text": "You may want to seek the advice of governments other than your own opinion, but their advice is tailored to their citizens.",
+    "speech": "You may want to seek advice from governments other than your own opinion but their advice is made for their citizens."
+   }
+  },
+  "te": {
+   "n": 20,
+   "text_bleu": 32.8,
+   "text_chrf++": 62.0,
+   "speech_bleu": 32.3,
+   "speech_chrf++": 60.2,
+   "example": {
+    "ref": "You may also wish to consult the advice of governments other than your own, but their advice is designed for their citizens.",
+    "text": "You may want to take the advice of governments, not just your own ideas, but their advice is tailored for their citizens.",
+    "speech": "You may want to take the advice of governments, not just your own ideas, but their advice is tailored for their citizens."
+   }
+  },
+  "or": {
+   "n": 20,
+   "text_bleu": 27.0,
+   "text_chrf++": 54.2,
+   "speech_bleu": 26.2,
+   "speech_chrf++": 53.9,
+   "example": {
+    "ref": "Cochamó Valley - Chile's premier climbing destination, known as the Yosemite of South America, with a variety of granite big walls and crags.",
+    "text": "Cochamo Valley is Chile's first climbing destination in South America known as Yosemite various granite large walls and rocks.",
+    "speech": "Kacham Valley Chile's first climbing destination South America Ysmit various granite known as the big walls and rocks"
+   }
+  },
+  "bn": {
+   "n": 18,
+   "text_bleu": 34.5,
+   "text_chrf++": 61.3,
+   "speech_bleu": 31.4,
+   "speech_chrf++": 59.3,
+   "example": {
+    "ref": "Police superintendent Chandra Shekhar Solanki said the accused appeared in court with covered faces.",
+    "text": "Superintendent of Police Chandra Shekhar Solanki said the accused appeared in court with their faces covered.",
+    "speech": "Superintendent of Police Chandrashekhar Sajki said the accused appeared in court with their faces covered."
+   }
+  }
+ },
+ "overall": {
+  "text_bleu": 34.4,
+  "text_chrf++": 60.7,
+  "speech_bleu": 29.4,
+  "speech_chrf++": 57.6,
+  "mt_ms_per_sentence": 893
+ },
+ "command": "python scripts/evaluate_mt.py --langs hi gu mr kn ml ta te or bn --tier int8"
+}

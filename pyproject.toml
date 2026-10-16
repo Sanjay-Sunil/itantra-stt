@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "indicstt"
+version = "0.0.1"
+description = "Offline, on-device speech-to-text (+ translation) for 10 Indian languages"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = ["numpy", "onnxruntime", "soundfile", "scipy", "huggingface_hub", "tokenizers", "sentencepiece"]
+
+[project.optional-dependencies]
+mic = ["sounddevice"]
+ui = ["streamlit", "sounddevice"]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["models: needs downloaded models (set INDICSTT_MODELS=1)"]
+
+[tool.ruff]
+line-length = 110
+src = ["src"]

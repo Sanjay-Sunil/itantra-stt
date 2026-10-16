@@ -106,14 +106,55 @@ div[data-testid="stTabs"] button p { font-size: .92rem; }
 
 # ---------------------------------------------------------------- shared resources (one per server)
 @st.cache_resource(show_spinner=False, max_entries=2)
-def base_engine(tier: str) -> Engine:
-    """All languages loaded once and shared by every visitor; per-visitor options via derive()."""
-    eng = Engine(EngineConfig(languages=CODES, target_language="en", asr_tier=tier, models_dir=MODELS))
-    mt = eng.stages.mt
-    for name in ("mt-indic-en", "mt-en-indic", "mt-indic-indic"):  # preload so no visitor waits on a load
-        if (MODELS / name).exists():
-            mt.bundle(name)
-    return eng
+def engine_loader(tier: str) -> dict:
+    """Loads the shared engine in a background thread so the page renders at once on a cold start
+    (Cloud Run starts the container on the first visit). Visitors see a warming-up card until it's ready."""
+    state = {"engine": None, "error": None, "stage": "Starting", "t0": time.time()}
+
+    def load():
+        try:
+            state["stage"] = "Loading speech models"
+            eng = Engine(EngineConfig(languages=CODES, target_language="en", asr_tier=tier, models_dir=MODELS))
+            mt = eng.stages.mt
+            for name in ("mt-indic-en", "mt-en-indic", "mt-indic-indic"):  # preload: no visitor waits on a load
+                if (MODELS / name).exists():
+                    state["stage"] = f"Loading translation ({name.removeprefix('mt-')})"
+                    mt.bundle(name)
+            state["engine"] = eng
+            state["load_s"] = time.time() - state["t0"]
+        except Exception as e:  # noqa: BLE001 - shown to the visitor as a friendly message
+            state["error"] = repr(e)
+
+    threading.Thread(target=load, name="engine-loader", daemon=True).start()
+    return state
+
+
+def base_engine(tier: str) -> Engine | None:
+    return engine_loader(tier)["engine"]
+
+
+def warming_up(tier: str) -> bool:
+    """True (and renders a self-refreshing card) while the engine is still loading."""
+    state = engine_loader(tier)
+    if state["engine"] is not None:
+        return False
+
+    @st.fragment(run_every=2)
+    def card():
+        if state["engine"] is not None:
+            st.rerun(scope="app")
+        if state["error"]:
+            st.error("The speech engine could not start on this server. Please try again later.")
+            return
+        secs = int(time.time() - state["t0"])
+        st.markdown(
+            f'<div class="empty" style="text-align:left"><b style="color:var(--ink)">Waking up the speech engine…'
+            f'</b><br>{html.escape(state["stage"])} · {secs} s<br><span style="font-size:.82rem">The server sleeps '
+            'when nobody is using it; the first visit loads about 1.7 GB of models (usually 20–40 s). '
+            'Everything after that is fast.</span></div>', unsafe_allow_html=True)
+
+    card()
+    return True
 
 
 @st.cache_resource(show_spinner=False)
@@ -236,6 +277,8 @@ def _timeline(rows: list[tuple[str, list[tuple[float, float, str]]]], total: flo
 
 
 def render_lid_test() -> None:
+    if warming_up("int8"):
+        return
     st.markdown('<div class="sub" style="margin-bottom:1rem">Speak in any of the 10 languages, switching after '
                 'a short pause. Voice detection cuts the audio into chunks at pauses and each chunk is tagged '
                 'with its language. All 10 languages are candidates here.</div>', unsafe_allow_html=True)
@@ -263,7 +306,7 @@ def render_lid_test() -> None:
         if len(audio) / 16000 > MAX_SECONDS:
             st.warning(f"Audio is limited to {MAX_SECONDS // 60} minutes.")
         else:
-            eng = base_engine("int8").derive(languages=CODES, target_language=None, asr_mode="ctc")
+            eng = base_engine("int8").derive(languages=CODES, target_language=None, asr_mode="ctc")  # ready: see below
             slots = job_slots()
             slots.acquire()
             try:
@@ -465,8 +508,9 @@ with page_try:
         st.markdown('<div class="empty">Choose at least one language you speak.</div>', unsafe_allow_html=True)
         st.stop()
 
-    with st.spinner("Starting the speech engine… (first visit only)"):
-        base = base_engine(tier)
+    if warming_up(tier):
+        st.stop()
+    base = base_engine(tier)
     engine = base.derive(languages=langs, target_language=target_opt, manual_language=manual, asr_mode=mode)
     target = target_opt
 

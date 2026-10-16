@@ -4,6 +4,7 @@ Dry run by default (lists what would be uploaded). Nothing is sent without --yes
 
   python scripts/publish.py models --repo zxnjxd/itantra-stt-models [--yes]
   python scripts/publish.py space  --repo zxnjxd/itantra-stt --models-repo zxnjxd/itantra-stt-models [--yes]
+  python scripts/publish.py cloudrun   (stages build/cloudrun for scripts/deploy_cloudrun.sh)
 
 The Space downloads the models at startup with an HF_TOKEN secret (read access to the models repo),
 which the owner adds in the Space settings.
@@ -86,13 +87,41 @@ def stage_space(models_repo: str) -> Path:
     return st
 
 
+def stage_cloudrun() -> Path:
+    """Build context for Cloud Run in build/cloudrun: code + demo audio + models (hard links, no copy)."""
+    import os
+
+    st = ROOT / "build/cloudrun"
+    if st.exists():
+        shutil.rmtree(st)
+    space = stage_space("unused")
+    shutil.copytree(space, st)
+    shutil.rmtree(space)
+    for f in ("Dockerfile", "start.sh"):
+        shutil.copy(ROOT / "deploy/cloudrun" / f, st / f)
+    (st / "start.sh").chmod(0o755)
+    for f in model_files():
+        dst = st / "models" / f.relative_to(M)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        os.link(f, dst)
+    return st
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", choices=["models", "space"])
-    ap.add_argument("--repo", required=True)
+    ap.add_argument("what", choices=["models", "space", "cloudrun"])
+    ap.add_argument("--repo", help="target repo (models / space)")
     ap.add_argument("--models-repo", help="for 'space': the private models repo the Space downloads from")
     ap.add_argument("--yes", action="store_true", help="actually create the repo and upload")
     args = ap.parse_args()
+
+    if args.what == "cloudrun":
+        st = stage_cloudrun()
+        files = [f for f in st.rglob("*") if f.is_file()]
+        print(f"staged Cloud Run build context: {len(files)} files, "
+              f"{sum(f.stat().st_size for f in files) / 1e9:.2f} GB in {st}")
+        print("deploy with: scripts/deploy_cloudrun.sh")
+        return
 
     from huggingface_hub import HfApi
 

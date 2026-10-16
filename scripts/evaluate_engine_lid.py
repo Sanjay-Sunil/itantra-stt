@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import time
 from collections import Counter
 from pathlib import Path
 
@@ -35,7 +34,6 @@ def main() -> None:
             ok = n = 0
             for p in sorted((ROOT / "data/smoke" / lang).glob("*.json"))[: args.n]:
                 seg = Segment(seq=0, start_ms=0, end_ms=0, audio=load_audio(ROOT / json.loads(p.read_text())["audio"]))
-                t = time.perf_counter()
                 lid = st.lid(seg)
                 enc = st.encode(seg) if lid[0] != "en" else None
                 st.decode(seg, lid, enc)

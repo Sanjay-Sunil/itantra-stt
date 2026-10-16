@@ -1,228 +1,152 @@
-# indicstt: iTantra speech-to-text engine (MVP)
+# iTantra STT engine
 
 Offline, on-device speech-to-text for **Hindi, Gujarati, Marathi, Kannada, Malayalam, Tamil, Telugu, Odia,
-Bengali and English**, spoken in any order, with every segment delivered in **one target language**
-(machine translation is part of the STT path). All inference runs locally with ONNX Runtime on CPU, and
-every shipped model is INT8 or lower.
+Bengali and English**, spoken in any order, with every part delivered in **one language the listener chooses**.
+This is the STT half of the iTantra AI pipeline (`docs/`). TTS, mesh networking and the app UI are other parts.
 
-This repository is the **STT engine only**: the "STT" half of the iTantra AI pipeline described in `docs/`
-(`ai architecture.docx`, `compression methadologies.docx`, `evaluation.docx`, `iTantra STT Pipeline.pdf`).
-TTS, the networking layer (BLE / Wi-Fi Direct), encryption and the Flutter app are out of scope. The
-engine's output (ordered, translated segment records) is what the networking layer would consume.
-
-- Design: `docs/` (full app) and `agent-kit/docs/architecture.md` (engine spec and contracts)
-- Work log and decisions: `PROGRESS.md`
-- Measurements: `results/` (only measured numbers; figures in `docs/` are projections)
-
----
-
-## 1. Pipeline
-
-As designed in the docs (STT pipeline, mid–high tier):
+## Progress toward the final STT product
 
 ```
-MIC / FILE (16 kHz mono)
-  → VAD thread: Silero VAD, 512-sample windows, debounced state machine        ── (A) segment queue, seq numbers
-  → per segment, in parallel:                                                   ── (B)
-        ├─ LID: AmberNet (TitaNet family) ─────────────┐
-        └─ IndicConformer shared encoder ──────────────┴─ (C) join: pick language, attach decode head
-  → decode: RNN-T (or CTC) with the language's head; English → whisper-tiny.en    ── (D) ASR worker pool (2–3)
-  → language ≠ target?  yes → IndicTrans2 MT worker                             ── (E) MT queue + skip, (F) MT pool
-                        no  → skip MT
-  → reorder buffer: release segment N only after N−1 (timeout → flag)           ── (G) exit gate
-  → Segment records → caller / UI / networking layer
+██████████████░░░░░░░░░░░░░░░░░░░░░░  39%   (10.5 of 27 milestones; done = 1, partial = ½)
 ```
 
-All seven concurrency points (A–G) from the docs are implemented in `src/indicstt/scheduler.py`.
-Queues are bounded and report `falling_behind` rather than dropping audio. A stuck segment is released
-after a timeout with the flag `timeout`, so one failure cannot freeze the transcript.
+| Phase | Milestones | Status |
+|---|---|---|
+| 1. Foundation | repo scaffold · model fetch + licences · evaluation harness | ◐ ◐ ● |
+| 2. Models into ONNX | ASR runner + parity · LID · VAD · INT8 / INT4 quantization | ● ● ● ● |
+| 3. Engine (reference) | audio I/O · scheduler + reorder · pipeline API · CLI · packs + model manager · translation + English · release v0.1 | ● ● ● ◐ ○ ● ○ |
+| 4. Compression training | encoder 600M → 300M · merged decode head · QAT for INT4 · LID distillation · MT distillation · weight clustering | ○ ○ ○ ○ ○ ○ |
+| 5. Mobile | C++ core · Python on core · Android library · Flutter plugin · iOS · on-device benchmarks · docs + release | ○ ○ ○ ○ ○ ○ ○ |
 
-### Models
+● done · ◐ partial · ○ not started. Milestones follow `agent-kit/PLAN.md` (A01–A27). LID distillation is
+optional now: AmberNet stays the LID model (decision 2026-10-16), measured at 99.5% with all 10 languages.
 
-| Stage | Model | Format | Size on disk | Licence |
-|---|---|---|---|---|
-| VAD | Silero VAD v5 | ONNX FP32 (as docs: too small to compress) | 2 MB | MIT |
-| LID | NVIDIA NeMo **AmberNet** (`langid_ambernet`, 28.9M params) | ONNX, static INT8 | 30 MB | NGC Terms of Use (check before redistributing) |
-| Indic ASR | `ai4bharat/indic-conformer-600m-multilingual` | ONNX, INT8 (or INT4-mixed) | 675 MB (535 MB) | MIT (gated on HF) |
-| English ASR | whisper-tiny.en | ONNX INT8 | 44 MB | MIT |
-| MT Indic↔Indic | IndicTrans2 indic-indic dist-320M | ONNX INT8 | 372 MB | MIT |
-| MT Indic→English | IndicTrans2 indic-en dist-200M | ONNX INT8 | 258 MB | MIT |
-| MT English→Indic | IndicTrans2 en-indic dist-200M | ONNX INT8 | 304 MB | MIT |
+## Current product vs final product
 
-MT models load lazily: only the directions a user's languages need are ever loaded.
+| | **Current (MVP, measured)** | **Final STT product (target, from `docs/`)** |
+|---|---|---|
+| Runs on | Laptop CPU (i7), Python reference engine | Android phones via Flutter; C++ core on ONNX Runtime Mobile (minimal-ops build) |
+| Device tiers | INT8 and INT4-mixed models, same laptop | High-end: INT8 on NPU/DSP · Low-end: INT4-mixed on CPU only |
+| Languages / code-switching | 10 languages, switching at pauses | 10 languages; high-end 2–3 per speaker, low-end up to 2 |
+| VAD | Silero, 2 MB | Silero, 2 MB |
+| Language ID | AmberNet INT8, 30 MB (+ ASR CTC check for Odia) | AmberNet INT8 (kept); docs' target was a distilled 10-language LID, 55–65 / 40–45 MB |
+| ASR encoder | IndicConformer **600M**, 653 MB INT8 / 511 MB INT4-mixed | Distilled **300M**: 310 MB INT8 / 210–220 MB INT4-mixed + QAT |
+| ASR decode heads | Separate per-language heads, loaded on demand | One merged head over the user's 2–3 languages, 12 / 7–9 MB |
+| English ASR | whisper-tiny.en INT8, 44 MB | whisper-tiny.en, ~40 / ~25 MB |
+| Translation | IndicTrans2 distilled 200M/320M INT8: 258–372 MB per direction | Distilled to 10 languages: 230–340 MB, INT8 floor |
+| STT models on disk, one user (2 speaker languages, 1 MT direction) | ~1.0–1.1 GB | high-end ~0.61–0.73 GB · low-end ~0.49–0.62 GB (sum of the docs' component targets) |
+| Peak RAM | ~1.7 GB, all models of one profile + 1 MT direction | ≤ 0.95–1.15 GB high-end · ≤ 0.62–0.77 GB low-end (docs' figure, whole pipeline) |
+| Idle RAM / CPU | not measured | 100–120 MB / 1–3% · 85–100 MB / 3–6% |
+| ASR WER, average (9 Indic languages) | **19.1%** INT8 · 19.4% INT4-mixed | 15–18% high-end · 17–20% low-end |
+| LID error | **0.5%** (all 10 candidates) | < 1% · < 1.5% |
+| ASR real-time factor | 0.13 INT8 · 0.15 INT4-mixed (laptop CPU) | 0.12–0.18 · 0.28–0.40 (phones) |
+| Speech end → text, same language | ~1.3 s (English) | ~1.2 s · ~2.7 s |
+| Speech end → text, with translation | **~1.0 s** | ~1.45–1.55 s · ~2.8–2.9 s |
+| Speech → English quality | BLEU 29.4 / chrF++ 57.6 | not specified (MT target: ≥ parent model, 87.13 SacreBLEU vs its FP32) |
+| Packaging | Models in `models/`, fetched by script | Base pack in the app (VAD + LID + encoder); per-language heads, English and MT packs downloaded on demand |
 
-### Segment record (output contract)
-
-| Field | Meaning |
-|---|---|
-| `seq`, `start_ms`, `end_ms` | VAD sequence number and position in the stream |
-| `language`, `lid_confidence` | Detected language and confidence |
-| `text` | Transcript in the spoken language |
-| `translation`, `target_language` | Text in the target language when MT ran (`output_text` gives whichever applies) |
-| `timings` | Per-stage ms: `vad`, `lid`, `lid_ctc`, `encoder`, `decode`, `mt`, `wait_reorder` |
-| `flags` | `unexpected_language`, `forced_cut`, `timeout`, `low_confidence`, `error`, `asr_unavailable` |
+Current numbers come from `results/` (FLEURS test clips, 18–20 per language). Final numbers are the docs'
+projections, so treat them as targets, not measurements.
 
 ---
 
-## 2. Changes from the docs, and why
+## The final STT product
 
-The engine follows the docs' architecture. Where it differs, the reason is one of four: a model isn't
-publicly available, a measurement showed something better, the step needs training compute beyond an MVP,
-or it belongs to the app rather than the engine.
+### Pipeline
 
-### Models
+```
+MIC (16 kHz) → VAD thread: Silero, 32 ms windows, debounced; numbered segments          ── (A) segment queue
+  → per segment, in parallel:                                                           ── (B)
+        ├─ LID: AmberNet ─────────────────────────────┐
+        └─ ASR encoder (distilled 300M Conformer) ─────┴─ (C) join: language → merged head ── (D) ASR worker pool
+  → language ≠ listener's language?  yes → MT (distilled IndicTrans2)                   ── (E) MT queue, (F) MT pool
+                                     no  → skip
+  → reorder buffer: segment N released after N−1                                        ── (G) exit gate
+  → segment records → networking layer (encrypted, mesh)
+```
 
-| Docs | This engine | Why |
+All seven concurrency points are implemented and stress-tested in the reference engine.
+
+### Components and compression
+
+| Stage | Final model | Compression applied | Target size (high / low tier) |
+|---|---|---|---|
+| VAD | Silero VAD | none (already tiny) | 2 MB |
+| LID | AmberNet (TitaNet family) | static INT8; Odia decided by the ASR CTC check | 30 MB (measured) |
+| ASR encoder | IndicConformer, distilled 600M → 300M on the 10 languages | INT8 / INT4-mixed with QAT; depthwise convs kept FP32 (sensitivity scan) | 310 / 210–220 MB |
+| Decode head | one merged RNN-T head with a language token, sliced to the user's languages | INT8 / INT4 output projection | 12 / 7–9 MB |
+| English ASR | whisper-tiny.en | INT8 / further quantized | ~40 / ~25 MB |
+| Translation | IndicTrans2 distilled on the 10 languages (from the 1B teacher) | INT8 (4-bit measured worse for this family) | 230–340 MB |
+| Runtime | ONNX Runtime Mobile, only the operators the packs use | operator pruning | several MB smaller binary |
+
+On-demand distribution: the app ships VAD, LID and the encoder. Decode heads, the English pack and MT packs
+download for the languages a user picks. Weights are memory-mapped, so idle RAM stays near the VAD + LID
+footprint.
+
+### Interfaces
+
+- **Segment record:** `seq`, `start_ms`, `end_ms`, `language`, `lid_confidence`, `text`, `translation`,
+  `target_language`, `timings` (per stage), `flags` (`unexpected_language`, `forced_cut`, `timeout`,
+  `low_confidence`), plus `lid_detail` (how the language was decided).
+- **Pack manifest:** id, version, kind (vad / lid / asr-encoder / asr-decode-head / asr-english / mt), languages,
+  tier, files with sha256, operator list, licence, measured metrics. See `agent-kit/docs/architecture.md`.
+
+### What changes from the original docs, and why
+
+| Docs | Final product | Why |
 |---|---|---|
-| **TitaNet-LID**, final layer fine-tuned to 10 languages | **AmberNet** (NVIDIA's released TitaNet-family LID, 28.9M params, same size class), exported to ONNX with an exact numpy re-implementation of NeMo's features | No TitaNet-LID checkpoint is published (only TitaNet *speaker* models). AmberNet is NVIDIA's public LID model. Fine-tuning a 10-class head (TitaNet or AmberNet) is possible on the RTX 4060 and is an open decision |
-| LID covers all 10 languages | AmberNet covers 9; **Odia** is decided by the ASR model (see "CTC language check" below) | AmberNet's training set (VoxLingua107) has no Odia |
-| ASR encoder **distilled 600M → 300M** | **600M** encoder, quantized | Distillation needs a large training corpus and GPU days. It stays a projection |
-| **Merged decode head** with language token | Separate per-language heads (as upstream ships them), loaded on demand for the user's languages | Merging needs training. The docs flag it as the step most in need of validation |
-| MT: IndicTrans2 indic-indic 1B / fresh 10-language distillation | Published **distilled 320M** (Indic↔Indic) **plus 200M indic-en and en-indic** | The 320M export is the docs' own fallback. English needs the en models because indic-indic cannot translate to or from English |
-| English: whisper-tiny.en **GGUF** Q8 | whisper-tiny.en **ONNX INT8** | One runtime (ONNX Runtime) for every model |
-| Low tier: single language, ~160 MB Vakyansh model | Low tier = **INT4-mixed** of the same pipeline, all languages and code-switching | Same direction as `evaluation.docx` (compression unlocks code-switching on low-end) |
+| TitaNet-LID fine-tuned to 10 languages | AmberNet + ASR CTC check | No public TitaNet-LID; AmberNet measured 99.5% on all 10 |
+| English via GGUF whisper | whisper-tiny.en ONNX INT8 | One runtime for every model |
+| INT8 everywhere | Depthwise convs FP32 (≈1 MB) | Measured +3.4 WER on Hindi when quantized |
+| RNN-T prediction/joint FP32 | INT8 | No measured cost |
+| — | LID cancels the encoder run when it hears English | English time-to-text 1.77 → 1.23 s |
+| — | Boost-only gain control before VAD | Catches quiet speakers after loud ones |
+| Code-switching mid-sentence | Switching at pauses | Language is decided per VAD segment |
+| — | English→Indic stays a dedicated model | indic-indic fed English measured −10 chrF++ |
 
-### Quantization (compression doc, technique 4)
+### Still to build for the final product
 
-| Docs | This engine | Why (measured, `results/quantization.md`) |
-|---|---|---|
-| Encoder INT8 ≈ 620 MB | INT8 encoder **653 MB** (whole ASR 675 MB) | — |
-| INT8 everywhere | Per-channel dynamic INT8 on every MatMul and Conv, **except the 24 depthwise convs** (≈0.2M of 607M weights, ≈1 MB) which stay FP32 | ORT's dynamic INT8 depthwise convolution raised Hindi WER 8.16 → 11.57%. Found by a layer-group sensitivity scan; with this exception Hindi is 8.92% |
-| INT4 on mid/late FFN, INT8 on early layers and attention, QAT on INT4 layers | INT4 block-wise (MatMulNBits, block 32) on FFN MatMuls of layers 2–23; layers 0–1 and attention INT8; **no QAT** | QAT needs training. Without it INT4-mixed costs +0.3 WER on average, so QAT isn't needed yet |
-| RNN-T prediction/joint nets kept FP32 (explainer doc) | INT8 | Measured: no WER cost (≤ noise) |
-| LID INT8 | **Static** (calibrated QDQ) INT8 | Dynamic INT8 was 3× *slower* than FP32 on conv layers. Static INT8 is 2.6× faster than FP32 |
-| Vocabulary pruning of MT, weight clustering, minimal-ops ORT build | Not done | Optional size work, mainly relevant for an Android build |
-
-### Engine behaviour added or changed
-
-- **CTC language check.** The shared encoder's CTC head is scored under each selected language's vocabulary
-  mask. That score decides between Indic languages when LID is unsure, and it decides Odia. If a selected
-  language has no LID class, LID only decides English vs Indic. Odia+English profile: Odia 0% → 100% correct.
-- **Encoder cancellation for English.** LID and the Indic encoder still start in parallel (point B). When LID
-  decides English, the in-flight encoder run is cancelled (`onnxruntime.RunOptions.terminate`). English
-  time-to-text: 1.77 s → 1.23 s.
-- **VAD gain control.** A boost-only automatic gain (cap 10×, ~1 s release) sits on the VAD input. The ASR
-  still gets raw audio. It catches a quiet speaker after a loud one, with no false segments on hiss or
-  rumble (`results/vad.md`).
-- **Code-switching granularity.** Language is decided per VAD segment, so switches are handled at pauses.
-  The docs' "mid-sentence switching without a pause" is not handled: a segment gets one language.
-- **RNN-T start token.** Upstream's `config.json` says SOS = 256, but its loader never reads that file. The
-  effective value is 5632. Using 256 does not reproduce upstream output.
-- **Runtime.** A Python reference engine on CPU (laptop as the edge device) with a Streamlit UI. The docs'
-  ORT Mobile / Flutter / Android build is not part of this MVP.
+1. Encoder distillation 600M → 300M (training data and GPU days); the biggest lever for RAM and WER.
+2. Merged decode head and QAT for INT4.
+3. MT distillation or vocabulary pruning to 10 languages (42–59% of each MT model is vocabulary tables).
+4. C++ core with a C API, Android library, Flutter plugin, minimal-ops ONNX Runtime build.
+5. Packs and model manager (download, verify, memory-map, evict).
+6. On-device benchmarks on a low-end CPU phone and a high-end NPU phone.
 
 ---
 
-## 3. Measured results
-
-Laptop i7-14650HX, **CPU only**, INT8 unless noted. Test data: first 18–20 FLEURS test clips per language
-(`scripts/build_smoke_set.py`). That's a small sample: ±1 WER point is noise for one language.
-
-| Metric | Measured | Docs projection (high-end phone, INT8) |
-|---|---|---|
-| Indic ASR WER, RNN-T, mean of 9 languages | **19.05%** (INT4-mixed 19.39%) | 15–18% (300M distilled) |
-| Per language (INT8) | hi 8.9 · bn 13.3 · mr 15.9 · gu 17.6 · kn 18.8 · or 21.3 · te 21.5 · ml 27.1 · ta 27.2 | — |
-| INT8 vs FP32 (gate ≤ 2 points) | hi +0.76, gu +0.66 (FP32 measured for these two only) | — |
-| English ASR WER | 10.0% | — |
-| LID accuracy, AmberNet INT8, 9 classes | 99.4% (calibration overlaps test clips) | < 1% error |
-| Language decision, 6 speaker profiles of 2–3 languages incl. Odia | 97.5–100% | — |
-| Code-switched recordings, pipeline vs oracle WER | +0 to +2.2 points; segment language 94–100% | — |
-| Speech → English, BLEU / chrF++ (text → English) | 29.4 / 57.6 (34.4 / 60.7) | — |
-| Time-to-text after speech ends (real-time stream) | **0.81 s** with MT, **1.23 s** English | 1.45–1.55 s / ~1.2 s |
-| ASR real-time factor (encoder + RNN-T) | 0.128 (INT4-mixed 0.151) | 0.12–0.18 |
-| Peak RAM, whole engine (VAD, LID, ASR, Whisper, MT) | **1.85 GB** (INT4-mixed 1.73 GB) | 0.95–1.15 GB |
-
-Where it falls short: RAM is above the projection, mainly because the encoder is 600M (not the 300M student)
-and MT plus Whisper are resident. Tamil and Malayalam WER are high (~27%). INT4-mixed is smaller but not
-faster on this x86 CPU; its speed on ARM is unmeasured. Nothing is measured on a phone yet.
-
-Details: `results/quantization.md`, `results/engine-latency.md`, `results/pipeline-and-translation.md`,
-`results/vad.md`. Each result file names the command that produced it.
-
----
-
-## 4. Quick start
+## Running the current product (MVP)
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[ui,dev]" pyarrow IndicTransToolkit onnx_ir
-
-# 1. models (IndicConformer is gated: accept its conditions on Hugging Face first)
-.venv/bin/python scripts/fetch_models.py
-
-# 2. AmberNet LID → ONNX (one-off, needs NeMo in a separate env)
-python3 -m venv .venv-nemo
-.venv-nemo/bin/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/python scripts/fetch_models.py                 # IndicConformer is gated: accept on Hugging Face first
+python3 -m venv .venv-nemo && .venv-nemo/bin/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 .venv-nemo/bin/pip install "nemo_toolkit[asr]" onnx onnxruntime
-.venv-nemo/bin/python scripts/export_ambernet.py
-
-# 3. test clips (FLEURS, CC-BY-4.0), needed for LID calibration
-.venv/bin/python scripts/build_smoke_set.py
-
-# 4. quantize: ASR INT8 and INT4-mixed tiers, LID static INT8
+.venv-nemo/bin/python scripts/export_ambernet.py          # AmberNet → ONNX (one-off)
+.venv/bin/python scripts/build_smoke_set.py               # FLEURS test clips (also used for LID calibration)
 .venv/bin/python scripts/quantize.py --tier int8 --lid
 .venv/bin/python scripts/quantize.py --tier int4mixed
-
-# 5. demo
 .venv/bin/python scripts/make_demo_clip.py en:0 hi:0 en:1 ta:0 --out data/demo/mixed_en_hi_ta.wav
 .venv/bin/streamlit run app/streamlit_app.py --server.address 0.0.0.0
 ```
 
-The UI takes the device microphone (live), a recording from any browser on the same network (e.g. a phone),
-or files and samples. Inference always stays on the edge device.
-
-### Python API
+The dashboard has three tabs: **Try it** (record, upload, examples, live mic; transcript cards in the chosen
+language), **Language test** (VAD chunks tagged with their language on a timeline, all 10 languages) and
+**How does this work?** (pipeline diagram with measured latency and RAM per stage).
 
 ```python
 from indicstt.engine import Engine, EngineConfig
-from indicstt.audio import MicSource
-
-eng = Engine(EngineConfig(
-    languages=["hi", "ta", "en"],   # languages the speaker may use
-    target_language="en",           # every segment delivered in English (None = no MT)
-    asr_tier="int8",                # "int8" (high-end) | "int4mixed" (low-end)
-    asr_mode="rnnt",                # "rnnt" (accurate) | "ctc" (fast)
-))
-for seg in eng.transcribe_file("clip.wav"):          # or: eng.stream(MicSource())
-    print(seg.seq, seg.language, seg.text, "→", seg.output_text, seg.timings)
+eng = Engine(EngineConfig(languages=["hi", "ta", "en"], target_language="en", asr_tier="int8", asr_mode="rnnt"))
+for seg in eng.transcribe_file("clip.wav"):
+    print(seg.seq, seg.language, seg.text, "→", seg.output_text)
 ```
 
-Other options: `manual_language` (skip LID), `asr_workers`, `mt_workers`, `threads_per_model`, `lid_ctc`
-(`auto` | `always`), and `vad` (`VADConfig`: thresholds, minimum speech/silence, padding, 30 s forced cut,
-`agc`).
+Measurements and the commands that produced them: `results/` (`quantization.md`, `memory.md`,
+`engine-latency.md`, `pipeline-and-translation.md`, `vad.md`). Work log: `PROGRESS.md`.
+Tests: `.venv/bin/pytest -q` (add `INDICSTT_MODELS=1` for real-model tests).
 
----
+### Licences
 
-## 5. Repository layout
-
-```
-src/indicstt/
-  audio.py       file / buffer / microphone input, resampling to 16 kHz mono
-  vad.py         Silero VAD, gain control, debounced segmenter (chunk-size invariant)
-  features.py    NeMo-compatible log-mel features in numpy (AmberNet, IndicConformer)
-  lid.py         AmberNet LID runner
-  asr.py         IndicConformer: shared encoder, CTC + RNN-T greedy decoding, CTC language scores
-  english.py     whisper-tiny.en runner (log-mel + KV-cached greedy decoding)
-  mt.py          IndicTrans2 runners, routed by direction, lazily loaded
-  scheduler.py   concurrency points A–G, worker pools, reorder buffer
-  engine.py      Engine / EngineConfig public API
-  segment.py     Segment record
-  evaluation.py  WER / CER with Indic-aware normalisation, regression gate
-app/streamlit_app.py      edge demo UI
-scripts/                  fetch_models, export_ambernet, quantize, build_smoke_set, make_demo_clip,
-                          evaluate_asr, evaluate_lid, evaluate_engine_lid, evaluate_pipeline, evaluate_mt,
-                          benchmark_engine
-tests/                    pytest: VAD state machine, scheduler stress (1,000 randomized runs), engine (models)
-results/                  measurements, each with its command
-```
-
-Tests: `.venv/bin/pytest -q` (no downloads needed); `INDICSTT_MODELS=1 .venv/bin/pytest -q` adds real-model tests.
-
-## 6. Not done yet
-
-- 600M → 300M encoder distillation, merged decode head, QAT, LID/MT distillation (training work)
-- Fine-tuned 10-language LID (TitaNet or AmberNet head); decision pending
-- Android / Flutter build, minimal-ops ONNX Runtime, on-phone benchmarks
-- MT vocabulary pruning, weight clustering
-- Tests on real speakers and real noise (all numbers so far use read FLEURS speech)
-- FP32 baseline for 7 of 9 Indic languages (only hi and gu measured)
+Code: Apache-2.0. Models: IndicConformer (MIT, gated), IndicTrans2 (MIT), whisper (MIT), Silero VAD (MIT),
+AmberNet (NGC Terms of Use; check before redistributing). Test audio: FLEURS (CC-BY-4.0).

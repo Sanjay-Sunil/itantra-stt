@@ -19,7 +19,7 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 | 1 | VAD = Silero VAD ONNX (onnx-community/silero-vad) | 512-sample windows, debounced state machine |
 | 2 | ASR = ai4bharat/indic-conformer-600m-multilingual (ONNX) | Shared encoder, CTC + per-language RNN-T heads. **Gated: user must accept on HF** |
 | 3 | English ASR = whisper-tiny.en ONNX (onnx-community) | ~40 MB int8 |
-| 4 | LID = NeMo AmberNet (TitaNet-family, NGC) exported to ONNX (+ CTC-mask scoring planned) | **OPEN — user asked about TitaNet-LID.** Options: A keep AmberNet, B TitaNet-Large encoder + 10-class head fine-tuned on FLEURS, C fine-tune AmberNet head to 10 classes incl Odia |
+| 4 | LID = NeMo AmberNet (TitaNet-family, NGC) exported to ONNX (+ CTC-mask scoring planned) | **Deferred by user (revisit later); AmberNet in use.** Options: A keep AmberNet, B TitaNet-Large encoder + 10-class head fine-tuned on FLEURS, C fine-tune AmberNet head to 10 classes incl Odia |
 | 5 | MT Indic↔Indic = hari31416/indictrans2-indic-indic-dist-320M-ONNX-int8 | Published, open |
 | 6 | MT Indic→En / En→Indic = hari31416/indictrans2-{indic-en,en-indic}-dist-200M-ONNX-int8 | Ungated ONNX exports of AI4Bharat models |
 | 7 | Numbers: only measured values go into `results/`; doc figures stay "projection" | agent-kit rule |
@@ -28,7 +28,7 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 ## Blockers (needs the user)
 
 - [ ] Accept access on HF for ai4bharat/indic-conformer-600m-multilingual (account `zxnjxd`). Currently 403. (MT English models no longer need it.)
-- [ ] Decide LID option A/B/C (see Decisions #4).
+- [ ] (later) Decide LID option A/B/C (see Decisions #4) — user deferred.
 
 ## Status
 

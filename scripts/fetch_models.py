@@ -34,7 +34,7 @@ HF_MODELS = {
     "mt-en-indic": ("hari31416/indictrans2-en-indic-dist-200M-ONNX-int8", None, False),
 }
 
-# NeMo AmberNet language-ID checkpoint (NGC, public, CC-BY-4.0)
+# NeMo AmberNet language-ID checkpoint (NGC, public; licence: NGC Terms of Use)
 NGC_MODELS = {
     "lid-ambernet": (
         "https://api.ngc.nvidia.com/v2/models/nvidia/nemo/langid_ambernet/versions/1.12.0/files/ambernet.nemo",

@@ -1,0 +1,58 @@
+{
+ "tier": "int8",
+ "memory": [
+  {
+   "component": "runtime",
+   "private_mb": 72,
+   "file_mb": 53
+  },
+  {
+   "component": "vad",
+   "private_mb": 9,
+   "file_mb": 9
+  },
+  {
+   "component": "lid",
+   "private_mb": 122,
+   "file_mb": 2
+  },
+  {
+   "component": "encoder",
+   "private_mb": 25,
+   "file_mb": 586
+  },
+  {
+   "component": "decoder",
+   "private_mb": 0,
+   "file_mb": 0
+  },
+  {
+   "component": "english",
+   "private_mb": 134,
+   "file_mb": 5
+  },
+  {
+   "component": "mt",
+   "private_mb": 129,
+   "file_mb": 180
+  }
+ ],
+ "latency_median_ms": {
+  "decode:en": 564.0,
+  "decode:indic": 27.2,
+  "encoder:en": 404.2,
+  "encoder:indic": 608.5,
+  "encoder_cancelled:en": 323.4,
+  "lid:en": 319.9,
+  "lid:indic": 185.4,
+  "mt:indic": 386.2,
+  "time_to_text:en": 1292.7,
+  "time_to_text:indic": 1011.1,
+  "vad:en": 356.6,
+  "vad:indic": 173.8,
+  "wait_reorder:en": 0.0,
+  "wait_reorder:indic": 0.0
+ },
+ "command": "python scripts/measure_memory.py --tier int8",
+ "machine": "i7-14650HX laptop, CPU only"
+}

@@ -110,7 +110,9 @@ class _Stages:
                 return (indic_sel[0], p_ind / total, scores, ms, top_any)
             known = {k: v for k, v in allowed.items() if k in INDIC}
             guess = max(known, key=known.get) if known else indic_sel[0]
-            return (guess, 0.0, scores, ms, top_any)  # conf 0 → decode() runs the CTC check
+            conf = known[guess] / (sum(known.values()) or 1.0) if known else 0.0
+            # an unknown-to-LID language is possible, so decode() always runs the CTC check here
+            return (guess, conf, scores, ms, top_any)
         if allowed:
             total = sum(allowed.values())
             lang = max(allowed, key=allowed.get)
@@ -141,8 +143,13 @@ class _Stages:
 
     # C + D: join, choose language, decode
     def decode(self, seg: Segment, lid_result: Any, enc: Any) -> None:
-        lang, conf, _scores, lid_ms = lid_result[:4]
+        lang, conf, scores, lid_ms = lid_result[:4]
         seg.timings["lid"] = round(lid_ms, 1)
+        top = sorted((scores or {}).items(), key=lambda kv: -kv[1])[:3]
+        seg.lid_detail = {
+            "decided_by": "manual" if self.cfg.manual_language else ("lid" if scores else "single"),
+            "lid_top": [[k, round(float(v), 3)] for k, v in top],
+        }
         if len(lid_result) > 4 and lid_result[4] not in self.cfg.languages and lid_result[4] in LANGUAGES:
             seg.flags.append(FLAG_UNEXPECTED_LANGUAGE)
         if self.indic_model is not None and enc is not None and hasattr(self.indic_model, "ctc_language_scores"):
@@ -155,9 +162,15 @@ class _Stages:
                 ctc = self.indic_model.ctc_language_scores(enc, indic_sel)
                 seg.timings["lid_ctc"] = round((time.perf_counter() - t) * 1000, 1)
                 best = max(ctc, key=ctc.get)
+                seg.lid_detail["ctc"] = {k: round(v, 3) for k, v in ctc.items()}
+                p = np.exp(np.array(list(ctc.values())) - max(ctc.values()))
+                p_best = float(p.max() / p.sum())
                 if best != lang:
-                    p = np.exp(np.array(list(ctc.values())) - max(ctc.values()))
-                    lang, conf = best, float(p.max() / p.sum())
+                    lang, conf = best, p_best
+                    seg.lid_detail["decided_by"] = "ctc"
+                else:  # both agree
+                    conf = max(conf, p_best)
+                    seg.lid_detail["decided_by"] = "lid+ctc"
         seg.language, seg.lid_confidence = lang, round(float(conf), 3)
         if conf < self.cfg.low_confidence and not self.cfg.manual_language and len(self.cfg.languages) > 1:
             seg.flags.append(FLAG_LOW_CONFIDENCE)

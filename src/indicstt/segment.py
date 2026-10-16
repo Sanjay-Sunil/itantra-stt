@@ -40,6 +40,9 @@ class Segment:
     tokens: list | None = None
     timings: dict[str, float] = field(default_factory=dict)
     flags: list[str] = field(default_factory=list)
+    # how the language was decided: {"decided_by": "lid"|"ctc"|"manual"|"single", "lid_top": [[lang, p], ...],
+    # "ctc": {lang: score}} — an extension to the agent-kit contract, for inspection/UI
+    lid_detail: dict | None = None
     # internal: raw audio, dropped from to_dict()
     audio: np.ndarray | None = field(default=None, repr=False)
 

@@ -8,7 +8,7 @@ font = "sans serif"
 
 [client]
 toolbarMode = "viewer"
-showErrorDetails = false
+showErrorDetails = "none"
 showSidebarNavigation = false
 
 [server]

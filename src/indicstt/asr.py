@@ -22,8 +22,10 @@ import numpy as np
 
 from .features import INDIC_CONFORMER_MEL, log_mel
 
-BLANK = 256
-SOS = 256
+BLANK = 256  # per-language blank (257-way heads)
+# Start token = union-vocab blank (5633 - 1). Upstream's config.json says 256, but its from_pretrained()
+# never reads config.json, so the effective upstream value is the IndicASRConfig default 5632.
+SOS = 5632
 MAX_SYMBOLS = 10
 SUPPORTED = ["hi", "gu", "mr", "kn", "ml", "ta", "te", "or", "bn"]
 
@@ -42,7 +44,7 @@ class Encoded:
 
 class IndicConformerASR:
     def __init__(self, model_dir: str | Path, threads: int = 4, mode: str = "rnnt",
-                 languages: list[str] | None = None):
+                 languages: list[str] | None = None, union_ids: bool = False):
         import onnxruntime as ort
 
         self.dir = Path(model_dir)
@@ -54,6 +56,9 @@ class IndicConformerASR:
                 "`python scripts/fetch_models.py --only indic-conformer`"
             )
         self.mode = mode
+        # union_ids=True feeds emitted tokens back to the prediction net as union-vocab ids
+        # (mask_idx[lang][tok]); False reproduces upstream, which feeds raw per-language ids.
+        self.union_ids = union_ids
         so = ort.SessionOptions()
         so.intra_op_num_threads = threads
         so.inter_op_num_threads = 1
@@ -140,7 +145,8 @@ class IndicConformerASR:
         f_all = self.joint_enc.run(["output"], {"input": enc.out[:, :, : enc.length].transpose(0, 2, 1)})[0]
         h = np.zeros((2, 1, 640), dtype=np.float32)
         c = np.zeros((2, 1, 640), dtype=np.float32)
-        hyp = [SOS]
+        hyp = [SOS]  # ids fed to the prediction network
+        out: list[int] = []  # per-language ids for detokenisation
         g_cache = None  # prediction-net output for (hyp[-1], state); reused across blank frames
 
         def predict(token, h, c):
@@ -159,7 +165,8 @@ class IndicConformerASR:
                 tok = int(post.run(["output"], {"input": z})[0].reshape(-1).argmax())
                 if tok == BLANK:
                     break
-                hyp.append(tok)
+                hyp.append(int(self.mask_idx[lang][tok]) if self.union_ids else tok)
+                out.append(tok)
                 h, c = h2, c2
                 g_cache = None
-        return self._detok(hyp[1:], lang)
+        return self._detok(out, lang)

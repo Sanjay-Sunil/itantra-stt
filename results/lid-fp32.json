@@ -1,0 +1,33 @@
+{
+ "name": "lid-fp32",
+ "onnx": "ambernet.onnx",
+ "candidates": [
+  "hi",
+  "gu",
+  "mr",
+  "kn",
+  "ml",
+  "ta",
+  "te",
+  "bn",
+  "en"
+ ],
+ "accuracy": {
+  "hi": 100.0,
+  "gu": 100.0,
+  "mr": 95.0,
+  "kn": 100.0,
+  "ml": 100.0,
+  "ta": 100.0,
+  "te": 100.0,
+  "bn": 100.0,
+  "en": 95.0
+ },
+ "mean_accuracy": 98.89,
+ "avg_ms": 1586,
+ "confusions": {
+  "mr->hi": 1,
+  "en->bn": 1
+ },
+ "command": "python scripts/evaluate_lid.py --onnx ambernet.onnx --name lid-fp32 --candidates hi gu mr kn ml ta te bn en"
+}

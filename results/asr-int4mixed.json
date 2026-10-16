@@ -1,0 +1,109 @@
+{
+ "name": "int4mixed",
+ "model": "models/indic-conformer-int4mixed",
+ "threads": 8,
+ "load_s": 4.2,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 9.68,
+    "cer": 2.96
+   },
+   "rnnt": {
+    "wer": 8.92,
+    "cer": 2.73
+   }
+  },
+  "gu": {
+   "ctc": {
+    "wer": 18.93,
+    "cer": 6.68
+   },
+   "rnnt": {
+    "wer": 17.82,
+    "cer": 6.35
+   }
+  },
+  "mr": {
+   "ctc": {
+    "wer": 18.55,
+    "cer": 4.58
+   },
+   "rnnt": {
+    "wer": 17.74,
+    "cer": 4.35
+   }
+  },
+  "kn": {
+   "ctc": {
+    "wer": 19.06,
+    "cer": 3.96
+   },
+   "rnnt": {
+    "wer": 19.38,
+    "cer": 3.83
+   }
+  },
+  "ml": {
+   "ctc": {
+    "wer": 26.07,
+    "cer": 6.1
+   },
+   "rnnt": {
+    "wer": 25.08,
+    "cer": 6.02
+   }
+  },
+  "ta": {
+   "ctc": {
+    "wer": 28.65,
+    "cer": 14.17
+   },
+   "rnnt": {
+    "wer": 26.02,
+    "cer": 13.98
+   }
+  },
+  "te": {
+   "ctc": {
+    "wer": 24.01,
+    "cer": 7.07
+   },
+   "rnnt": {
+    "wer": 22.03,
+    "cer": 6.6
+   }
+  },
+  "or": {
+   "ctc": {
+    "wer": 24.8,
+    "cer": 7.76
+   },
+   "rnnt": {
+    "wer": 22.4,
+    "cer": 7.29
+   }
+  },
+  "bn": {
+   "ctc": {
+    "wer": 14.1,
+    "cer": 2.76
+   },
+   "rnnt": {
+    "wer": 15.16,
+    "cer": 2.56
+   }
+  }
+ },
+ "mean_wer_ctc": 20.43,
+ "mean_wer_rnnt": 19.39,
+ "audio_s": 2264.4,
+ "rtf_encoder": 0.1418,
+ "rtf": {
+  "ctc": 0.1446,
+  "rnnt": 0.1506
+ },
+ "peak_rss_mb": 1018,
+ "model_mb_on_disk": 535,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-int4mixed --name int4mixed --langs hi gu mr kn ml ta te or bn --threads 8 --n 20"
+}

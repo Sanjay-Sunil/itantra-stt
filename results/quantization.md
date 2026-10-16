@@ -74,4 +74,20 @@ per-language token ids; feeding union-vocab ids gives 568% WER.
 Static INT8 is calibrated on 3 smoke clips per language, which overlap the 20 evaluation clips — accuracy
 slightly optimistic. Commands: `python scripts/quantize.py --lid`,
 `python scripts/evaluate_lid.py --onnx ambernet.int8.onnx --name lid-int8-static --candidates hi gu mr kn ml ta te bn en`.
-AmberNet has no Odia class; Odia relies on the IndicConformer CTC language check (not yet measured).
+AmberNet has no Odia class; Odia relies on the IndicConformer CTC language check.
+
+## Engine language decision per speaker profile (AmberNet INT8 + CTC check, ASR INT8)
+
+`python scripts/evaluate_engine_lid.py --profiles or,en or,bn,hi or,bn,en hi,mr,en ta,te,en gu,mr,hi` → `results/engine-lid-int8.json`
+
+| Profile | Accuracy | Errors | LID ms / segment |
+|---|---|---|---|
+| or, en | 97.5% | en→or ×1 | 278 |
+| or, bn, hi | 100% | — | 465 |
+| or, bn, en | 98.3% | en→bn ×1 | 404 |
+| hi, mr, en | 100% | — | 331 |
+| ta, te, en | 100% | — | 320 |
+| gu, mr, hi | 100% | — | 349 |
+
+When a selected language has no AmberNet class (Odia), AmberNet only decides English vs Indic (summed Indic mass);
+the IndicConformer CTC check picks the Indic language. Before this rule, the or,en profile scored 0% on Odia.

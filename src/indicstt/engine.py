@@ -77,6 +77,20 @@ class _Stages:
         scores, ms = self.lid_model.scores(seg.audio)
         allowed = {k: v for k, v in scores.items() if k in cfg.languages}
         top_any = max(scores, key=scores.get)
+        indic_sel = [x for x in cfg.languages if x in INDIC]
+        if any(x not in scores for x in indic_sel):
+            # A selected language the LID model has no class for (Odia): only decide English vs Indic here,
+            # using the mass on every Indic class; the CTC check in decode() picks the Indic language.
+            p_en = scores.get("en", 0.0) if "en" in cfg.languages else 0.0
+            p_ind = sum(v for k, v in scores.items() if k in INDIC)
+            total = (p_en + p_ind) or 1.0
+            if p_en > p_ind:
+                return ("en", p_en / total, scores, ms, top_any)
+            if len(indic_sel) == 1:
+                return (indic_sel[0], p_ind / total, scores, ms, top_any)
+            known = {k: v for k, v in allowed.items() if k in INDIC}
+            guess = max(known, key=known.get) if known else indic_sel[0]
+            return (guess, 0.0, scores, ms, top_any)  # conf 0 → decode() runs the CTC check
         if allowed:
             total = sum(allowed.values())
             lang = max(allowed, key=allowed.get)

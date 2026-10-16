@@ -30,12 +30,23 @@ def _new_run_options():
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def default_models_dir() -> Path:
+    """INDICSTT_MODELS_DIR, else ./models, else the repository's models/ (source checkout)."""
+    import os
+
+    if os.environ.get("INDICSTT_MODELS_DIR"):
+        return Path(os.environ["INDICSTT_MODELS_DIR"])
+    if (Path.cwd() / "models").is_dir():
+        return Path.cwd() / "models"
+    return ROOT / "models"
+
+
 @dataclass
 class EngineConfig:
     languages: list[str] = field(default_factory=lambda: ["hi", "en"])  # languages the speaker may use
     target_language: str | None = "en"  # every segment is delivered in this language; None = no MT
     manual_language: str | None = None  # skip LID and force this language
-    models_dir: Path = ROOT / "models"
+    models_dir: Path = field(default_factory=default_models_dir)
     asr_workers: int = 2
     mt_workers: int = 1
     threads_per_model: int = 4

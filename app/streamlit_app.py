@@ -10,6 +10,7 @@ import hashlib
 import html
 import io
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -28,6 +29,8 @@ NATIVE = {"hi": "हिन्दी", "gu": "ગુજરાતી", "mr": "म�
           "te": "తెలుగు", "or": "ଓଡ଼ିଆ", "bn": "বাংলা", "en": "English"}
 MAX_SECONDS = 120  # per recording / upload, public safeguard
 MAX_CONCURRENT_JOBS = 2
+CLOUD = os.environ.get("ITANTRA_CLOUD") == "1"  # hosted (e.g. Hugging Face Space): no server microphone
+TIERS = [t for t in ("int8", "int4mixed") if (MODELS / f"indic-conformer-{t}").exists()] or ["int8"]
 
 st.set_page_config(page_title="iTantra · Speech to text", page_icon="◐", layout="centered",
                    initial_sidebar_state="collapsed")
@@ -105,7 +108,7 @@ div[data-testid="stTabs"] button p { font-size: .92rem; }
 @st.cache_resource(show_spinner=False, max_entries=2)
 def base_engine(tier: str) -> Engine:
     """All languages loaded once and shared by every visitor; per-visitor options via derive()."""
-    eng = Engine(EngineConfig(languages=CODES, target_language="en", asr_tier=tier))
+    eng = Engine(EngineConfig(languages=CODES, target_language="en", asr_tier=tier, models_dir=MODELS))
     mt = eng.stages.mt
     for name in ("mt-indic-en", "mt-en-indic", "mt-indic-indic"):  # preload so no visitor waits on a load
         if (MODELS / name).exists():
@@ -452,7 +455,7 @@ with page_try:
                            placeholder="Choose languages")
     target_opt = c2.selectbox("Show me in", CODES, index=CODES.index("en"), format_func=label)
     with c3.popover("", icon=":material/tune:", help="Settings"):
-        tier = st.radio("Model size", ["int8", "int4mixed"],
+        tier = st.radio("Model size", TIERS,
                         format_func={"int8": "Standard (INT8)", "int4mixed": "Compact (INT4)"}.get)
         mode = st.radio("Decoder", ["rnnt", "ctc"], format_func={"rnnt": "Accurate (RNN-T)", "ctc": "Fast (CTC)"}.get)
         auto = st.toggle("Detect language automatically", value=True)
@@ -468,7 +471,10 @@ with page_try:
     target = target_opt
 
     # ---------------------------------------------------------------- input
-    tab_rec, tab_up, tab_ex, tab_live = st.tabs(["Record", "Upload", "Examples", "Live mic"])
+    tab_names = ["Record", "Upload", "Examples"] + ([] if CLOUD else ["Live mic"])
+    tabs = st.tabs(tab_names)
+    tab_rec, tab_up, tab_ex = tabs[:3]
+    tab_live = tabs[3] if not CLOUD else None
 
     with tab_rec:
         rec = st.audio_input("Record", label_visibility="collapsed")
@@ -515,17 +521,18 @@ with page_try:
         else:
             st.markdown('<div class="empty">No examples on this device.</div>', unsafe_allow_html=True)
 
-    with tab_live:
-        st.caption("Uses the microphone of the device running iTantra. Text appears after each pause.")
-        a, b = st.columns(2)
-        start = a.button("Start listening", type="primary", width="stretch")
-        if b.button("Stop", width="stretch"):
-            stop_live()
-        if start:
-            stop_live()
-            src = MicSource()
-            st.session_state["live_source"] = src
-            run_job(engine, src, target, None, "Live microphone")
+    if tab_live is not None:  # the server's own microphone: only meaningful on a device you stand at
+        with tab_live:
+            st.caption("Uses the microphone of the device running iTantra. Text appears after each pause.")
+            a, b = st.columns(2)
+            start = a.button("Start listening", type="primary", width="stretch")
+            if b.button("Stop", width="stretch"):
+                stop_live()
+            if start:
+                stop_live()
+                src = MicSource()
+                st.session_state["live_source"] = src
+                run_job(engine, src, target, None, "Live microphone")
 
     # ---------------------------------------------------------------- result
     res = st.session_state.get("result")

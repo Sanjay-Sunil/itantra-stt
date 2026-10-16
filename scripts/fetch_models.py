@@ -1,6 +1,7 @@
 """Download every upstream model the engine uses into models/.
 
 Usage: python scripts/fetch_models.py [--only NAME ...]
+       python scripts/fetch_models.py --prepared OWNER/REPO   (built models, e.g. on the Hugging Face Space)
 Re-running is a no-op for files already present. Gated repos need the HF account to have
 accepted the access conditions (token is read from HF_TOKEN or the cached login).
 """
@@ -88,7 +89,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", nargs="*", help="subset of model names")
     ap.add_argument("--no-lock", action="store_true", help="skip hashing into manifest.lock.json")
+    ap.add_argument("--prepared", metavar="REPO",
+                    help="download already-built (quantized/exported) models from this HF repo and exit")
     args = ap.parse_args()
+    if args.prepared:
+        MODELS.mkdir(exist_ok=True)
+        snapshot_download(args.prepared, local_dir=MODELS)  # HF_TOKEN from the environment for private repos
+        print(f"models ready from {args.prepared}")
+        return 0
     names = args.only or [*HF_MODELS, *NGC_MODELS]
     MODELS.mkdir(exist_ok=True)
     failed = False

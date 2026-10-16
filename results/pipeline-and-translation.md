@@ -40,3 +40,12 @@ ta/te/en. Segment-level language errors and VAD cuts mid-word are the two source
 MT latency ≈ 0.9 s per FLEURS sentence (long, ~20 words) here; conversational segments are shorter.
 These are BLEU against human English references, not the docs' "87.13 SacreBLEU vs FP32 oracle" metric
 (which measures INT8-vs-FP32 agreement, a different thing).
+
+## Language ID with all 10 languages as candidates
+
+`python scripts/evaluate_engine_lid.py --profiles hi,gu,mr,kn,ml,ta,te,or,bn,en --tier int8` → `results/engine-lid-int8.json`
+(whole FLEURS clips, 18–20 per language): **99.5%** — 100% on all 9 Indian languages including Odia,
+95% English (1 clip → Bengali). ~0.5 s LID per clip (AmberNet + CTC check over 9 languages).
+
+Dashboard "Language test" on `data/demo/all10_languages.wav` (7 s per language, VAD-chunked): 12/13 chunks
+correct; the miss is a 1 s fragment at the end of the Telugu part. Very short chunks are the weak spot.

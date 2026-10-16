@@ -1,69 +1,25 @@
 {
  "tier": "int8",
  "profiles": {
-  "or,en": {
+  "hi,gu,mr,kn,ml,ta,te,or,bn,en": {
    "accuracy": {
-    "or": 100.0,
-    "en": 95.0
-   },
-   "mean": 97.5,
-   "confusions": {
-    "en->or": 1
-   },
-   "avg_lid_ms": 278
-  },
-  "or,bn,hi": {
-   "accuracy": {
-    "or": 100.0,
-    "bn": 100.0,
-    "hi": 100.0
-   },
-   "mean": 100.0,
-   "confusions": {},
-   "avg_lid_ms": 465
-  },
-  "or,bn,en": {
-   "accuracy": {
+    "hi": 100.0,
+    "gu": 100.0,
+    "mr": 100.0,
+    "kn": 100.0,
+    "ml": 100.0,
+    "ta": 100.0,
+    "te": 100.0,
     "or": 100.0,
     "bn": 100.0,
     "en": 95.0
    },
-   "mean": 98.33,
+   "mean": 99.5,
    "confusions": {
     "en->bn": 1
    },
-   "avg_lid_ms": 404
-  },
-  "hi,mr,en": {
-   "accuracy": {
-    "hi": 100.0,
-    "mr": 100.0,
-    "en": 100.0
-   },
-   "mean": 100.0,
-   "confusions": {},
-   "avg_lid_ms": 331
-  },
-  "ta,te,en": {
-   "accuracy": {
-    "ta": 100.0,
-    "te": 100.0,
-    "en": 100.0
-   },
-   "mean": 100.0,
-   "confusions": {},
-   "avg_lid_ms": 320
-  },
-  "gu,mr,hi": {
-   "accuracy": {
-    "gu": 100.0,
-    "mr": 100.0,
-    "hi": 100.0
-   },
-   "mean": 100.0,
-   "confusions": {},
-   "avg_lid_ms": 349
+   "avg_lid_ms": 511
   }
  },
- "command": "python scripts/evaluate_engine_lid.py --profiles or,en or,bn,hi or,bn,en hi,mr,en ta,te,en gu,mr,hi --tier int8"
+ "command": "python scripts/evaluate_engine_lid.py --profiles hi,gu,mr,kn,ml,ta,te,or,bn,en --tier int8"
 }

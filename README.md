@@ -6,7 +6,7 @@ Odia, Bengali and English** in one conversation, figures out which language each
 and delivers everything in the **one language the listener chose**.
 
 It is the speech-to-text half of iTantra, an offline, peer-to-peer communication app (STT → mesh network → TTS).
-The full design is in [`docs/`](docs/).
+The engine specification is in [`agent-kit/docs/architecture.md`](agent-kit/docs/architecture.md).
 
 ```
 ██████████████░░░░░░░░░░░░░░░░░░░░░░  39% of the final STT product  (10.5 / 27 milestones; details below)
@@ -28,7 +28,7 @@ The full design is in [`docs/`](docs/).
 10. [Repository layout](#10-repository-layout)
 
 Unless a figure is labelled **measured**, numbers in sections 3–6 are the **final product's targets** from the
-design documents (`docs/evaluation.docx`, `docs/compression methadologies.docx`). Measurements from the current
+iTantra design documents (summarised in [`agent-kit/docs/architecture.md`](agent-kit/docs/architecture.md)). Measurements from the current
 reference engine are in section 7 and in [`results/`](results/).
 
 ---
@@ -234,7 +234,7 @@ re-read those pages from flash instead of killing the app.
 
 The reference engine already has every stage, all seven concurrency points and both quantized tiers. What
 remains is training the smaller models (phase 4) and the mobile build (phase 5). Details:
-[`results/`](results/) and [`PROGRESS.md`](PROGRESS.md).
+[`results/`](results/).
 
 ---
 
@@ -320,7 +320,6 @@ app/               Streamlit dashboard
 scripts/           fetch, export, quantize, build test sets, evaluate (ASR, LID, pipeline, MT), benchmark, memory
 tests/             unit tests (no downloads needed) and real-model tests
 results/           every measurement with the command that produced it
-docs/              iTantra design documents (architecture, compression, evaluation)
 agent-kit/         engine specification and module plan
 ```
 

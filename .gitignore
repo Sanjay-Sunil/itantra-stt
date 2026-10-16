@@ -49,3 +49,7 @@ nohup.out
 *.swp
 .DS_Store
 Thumbs.db
+
+# Private: internal work log and team design documents
+PROGRESS.md
+docs/

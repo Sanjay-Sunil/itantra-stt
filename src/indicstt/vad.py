@@ -49,13 +49,13 @@ class GainControl:
     a loud one is still detected. Measured: no false segments on 20 s of hiss or low rumble (results/vad.md).
     """
 
-    def __init__(self, target: float = 0.3, max_gain: float = 30.0, floor: float = 1e-3, release: float = 0.97):
+    def __init__(self, target: float = 0.3, max_gain: float = 10.0, floor: float = 1e-3, release: float = 0.97):
         self.target, self.max_gain, self.floor, self.release = target, max_gain, floor, release
         self.env = floor
 
     def __call__(self, window: np.ndarray) -> np.ndarray:
         self.env = max(float(np.abs(window).max()), self.env * self.release, self.floor)
-        return window * min(self.max_gain, self.target / self.env)
+        return window * min(self.max_gain, max(1.0, self.target / self.env))  # boost only, never attenuate
 
 
 @dataclass

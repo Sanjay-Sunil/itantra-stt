@@ -38,7 +38,7 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 | Model fetch (`scripts/fetch_models.py`) | done except IndicConformer (gated) |
 | FLEURS smoke set, 20 clips × 10 langs (`scripts/build_smoke_set.py`) | done → data/smoke/ |
 | Audio input (file/buffer/mic) `audio.py` | done |
-| VAD + segmenter `vad.py` | done, unit-tested (no real-model test yet) |
+| VAD + segmenter `vad.py` | done; boost-only gain control (cap 10x) before Silero — results/vad.md |
 | Scheduler + reorder buffer `scheduler.py` | done, 1000-run stress test passes |
 | MT `mt.py` (3 IndicTrans2 bundles) | done, smoke-tested |
 | English ASR `english.py` | done, WER 10.0% on smoke |
@@ -68,4 +68,5 @@ Measured numbers: `results/`.
 - Next: IndicConformer runner (needs HF access) → CTC-mask language scoring (covers Odia) → INT8/INT4 quantization + measured WER/RTF/RAM table.
 - 2026-10-16 — IndicConformer in. Gotchas: (1) upstream preprocessor uses reflect pad + T//hop+1 frames; (2) effective RNN-T SOS is 5632 (upstream ignores config.json's 256); (3) prediction net must get per-language token ids (union ids → 568% WER). User requirement: ship INT8 or lower for every model (FP32 = reference only).
 - 2026-10-16 — Quantized everything to INT8 or lower (user requirement). Key finding: ORT dynamic INT8 on depthwise convs costs +3.4 WER (hi) → those 0.2M weights stay FP32; per-channel scales. LID: dynamic INT8 was 3x slower → static QDQ INT8 is 2.6x faster than FP32. Partial FP32 ref only for hi/gu (user stopped full FP32 run).
-- Next: measure CTC-based Odia LID; English path still runs the Indic encoder in parallel (wasted ~0.6 s) — skip when LID says en; real-voice code-switch test from user.
+- 2026-10-16 — Odia LID fixed (English-vs-Indic decision when selected language has no AmberNet class): or+en profile 0% → 100% Odia; 6 profiles 97.5–100%. LID cancels the parallel Indic encoder when it says English (ORT RunOptions.terminate): English time-to-text 1.77 → 1.23 s. Real-time benchmark: INT8 time-to-text 0.81 s (Indic+MT), 1.23 s (English); peak RSS 1.85 GB. VAD gain control added; known VAD issue resolved.
+- Next: real-voice code-switch test (needs user recording); optionally full FP32 baseline for remaining 7 languages; ORT minimal-ops build / Android are out of MVP scope.

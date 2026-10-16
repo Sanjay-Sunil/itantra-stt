@@ -27,7 +27,7 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 
 ## Blockers (needs the user)
 
-- [ ] Accept access on HF for ai4bharat/indic-conformer-600m-multilingual (account `zxnjxd`). Currently 403. (MT English models no longer need it.)
+- [x] HF access to IndicConformer granted 2026-10-16; downloaded (2.4 GB FP32).
 - [ ] (later) Decide LID option A/B/C (see Decisions #4) — user deferred.
 
 ## Status
@@ -44,11 +44,12 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 | English ASR `english.py` | done, WER 10.0% on smoke |
 | NeMo-parity features `features.py` | done |
 | LID `lid.py` (AmberNet ONNX) | done; final choice deferred by user |
-| ASR runner (IndicConformer) | blocked on HF access |
+| ASR runner `asr.py` (IndicConformer) | done; exact parity with upstream 9/9 (CTC and RNN-T) on hi/ta/or; numpy preprocessor MAE 1e-6 vs preprocessor.ts |
+| WER/CER eval `evaluation.py`, `scripts/evaluate_asr.py` | done |
 | Engine API `engine.py` | done; English path verified end-to-end; Indic segments tagged `asr_unavailable` until IndicConformer lands |
 | Streamlit UI `app/streamlit_app.py` | done; verified via AppTest (8 segments, RTF 0.07) |
 | Demo clip builder `scripts/make_demo_clip.py` | done → data/demo/ |
-| Quantization (INT8/INT4) + results | todo |
+| Quantization `scripts/quantize.py` (int8, int4mixed, LID int8) | written; FP32 baseline running, then quantize + gate |
 
 Measured numbers: `results/`.
 
@@ -64,3 +65,4 @@ Measured numbers: `results/`.
 - 2026-10-16 — Built audio, VAD, scheduler, MT (all 3 directions via ungated hari31416 ONNX int8), Whisper English, AmberNet export with exact NeMo parity, FLEURS smoke set. Waiting on HF access + LID decision.
 - 2026-10-16 — Engine + Streamlit UI working. Known issue: Silero VAD misses a very quiet clip right after loud speech (60x level jump in a spliced test); demo clips are level-matched. Possible fix later: AGC before VAD.
 - Next: IndicConformer runner (needs HF access) → CTC-mask language scoring (covers Odia) → INT8/INT4 quantization + measured WER/RTF/RAM table.
+- 2026-10-16 — IndicConformer in. Gotchas: (1) upstream preprocessor uses reflect pad + T//hop+1 frames; (2) effective RNN-T SOS is 5632 (upstream ignores config.json's 256); (3) prediction net must get per-language token ids (union ids → 568% WER). User requirement: ship INT8 or lower for every model (FP32 = reference only).

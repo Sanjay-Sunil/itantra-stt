@@ -43,9 +43,11 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 | MT `mt.py` (3 IndicTrans2 bundles) | done, smoke-tested |
 | English ASR `english.py` | done, WER 10.0% on smoke |
 | NeMo-parity features `features.py` | done |
-| LID `lid.py` (AmberNet ONNX) | done; choice pending user |
+| LID `lid.py` (AmberNet ONNX) | done; final choice deferred by user |
 | ASR runner (IndicConformer) | blocked on HF access |
-| Engine API + Streamlit UI | todo |
+| Engine API `engine.py` | done; English path verified end-to-end; Indic segments tagged `asr_unavailable` until IndicConformer lands |
+| Streamlit UI `app/streamlit_app.py` | done; verified via AppTest (8 segments, RTF 0.07) |
+| Demo clip builder `scripts/make_demo_clip.py` | done → data/demo/ |
 | Quantization (INT8/INT4) + results | todo |
 
 Measured numbers: `results/`.
@@ -53,9 +55,12 @@ Measured numbers: `results/`.
 ## Environment
 
 - Laptop: i7-14650HX (24 threads), 15 GB RAM, RTX 4060 8 GB, built-in mic. Python 3.11, venv at `.venv/`.
-- Run: `.venv/bin/streamlit run app/streamlit_app.py` (once built).
+- Run UI: `.venv/bin/streamlit run app/streamlit_app.py --server.address 0.0.0.0`
+- Tests: `.venv/bin/pytest -q` (add `INDICSTT_MODELS=1` for real-model tests)
 
 ## Log
 
 - 2026-10-16 — Analysed docs/ and agent-kit/. Verified model availability on HF. Agreed scope with user. Created repo, venv, PROGRESS.md.
 - 2026-10-16 — Built audio, VAD, scheduler, MT (all 3 directions via ungated hari31416 ONNX int8), Whisper English, AmberNet export with exact NeMo parity, FLEURS smoke set. Waiting on HF access + LID decision.
+- 2026-10-16 — Engine + Streamlit UI working. Known issue: Silero VAD misses a very quiet clip right after loud speech (60x level jump in a spliced test); demo clips are level-matched. Possible fix later: AGC before VAD.
+- Next: IndicConformer runner (needs HF access) → CTC-mask language scoring (covers Odia) → INT8/INT4 quantization + measured WER/RTF/RAM table.

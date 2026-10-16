@@ -55,7 +55,10 @@ def _fb_and_window(cfg: MelConfig):
     return fb, full
 
 
-def log_mel(audio: np.ndarray, cfg: MelConfig = MelConfig()) -> np.ndarray:
+DEFAULT_MEL = MelConfig()
+
+
+def log_mel(audio: np.ndarray, cfg: MelConfig = DEFAULT_MEL) -> np.ndarray:
     """audio (T,) float32 → features (n_mels, frames) float32."""
     x = np.asarray(audio, dtype=np.float64)
     if cfg.preemph:

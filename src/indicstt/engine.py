@@ -31,6 +31,9 @@ class EngineConfig:
     mt_workers: int = 1
     threads_per_model: int = 4
     low_confidence: float = 0.5
+    asr_tier: str = "int8"  # int8 (high-end) | int4mixed (low-end) | fp32 (reference only)
+    asr_mode: str = "rnnt"  # rnnt (more accurate) | ctc (faster)
+    lid_tier: str = "int8"  # int8 | fp32
     vad: VADConfig = field(default_factory=VADConfig)
 
 
@@ -46,9 +49,9 @@ class _Stages:
         self.mt = None
         self.load_errors: dict[str, str] = {}
         if not cfg.manual_language and len(cfg.languages) > 1:
-            self._try("lid_model", lambda: _load_lid(md, cfg.threads_per_model))
+            self._try("lid_model", lambda: _load_lid(md, cfg.threads_per_model, cfg.lid_tier))
         if any(lang in INDIC for lang in cfg.languages):
-            self._try("indic_model", lambda: _load_indic(md, cfg.threads_per_model))
+            self._try("indic_model", lambda: _load_indic(md, cfg))
         if "en" in cfg.languages:
             self._try("english_model", lambda: _load_english(md, cfg.threads_per_model))
         if cfg.target_language:
@@ -99,8 +102,13 @@ class _Stages:
             # Languages AmberNet cannot score (Odia) or same-script pairs: let the ASR CTC scores decide
             indic_sel = [x for x in self.cfg.languages if x in INDIC]
             if lang != "en" and len(indic_sel) > 1 and (conf < 0.8 or "or" in indic_sel):
+                t = time.perf_counter()
                 ctc = self.indic_model.ctc_language_scores(enc, indic_sel)
-                lang = max(ctc, key=ctc.get)
+                seg.timings["lid_ctc"] = round((time.perf_counter() - t) * 1000, 1)
+                best = max(ctc, key=ctc.get)
+                if best != lang:
+                    p = np.exp(np.array(list(ctc.values())) - max(ctc.values()))
+                    lang, conf = best, float(p.max() / p.sum())
         seg.language, seg.lid_confidence = lang, round(float(conf), 3)
         if conf < self.cfg.low_confidence and not self.cfg.manual_language and len(self.cfg.languages) > 1:
             seg.flags.append(FLAG_LOW_CONFIDENCE)
@@ -127,10 +135,12 @@ class _Stages:
         seg.timings["mt"] = round(ms, 1)
 
 
-def _load_lid(md: Path, threads: int):
+def _load_lid(md: Path, threads: int, tier: str):
     from .lid import AmberNetLID
 
-    return AmberNetLID(md / "lid-ambernet", threads=threads)
+    name = "ambernet.int8.onnx" if tier == "int8" and (md / "lid-ambernet/ambernet.int8.onnx").exists() \
+        else "ambernet.onnx"
+    return AmberNetLID(md / "lid-ambernet", threads=threads, onnx_name=name)
 
 
 def _load_english(md: Path, threads: int):
@@ -139,10 +149,14 @@ def _load_english(md: Path, threads: int):
     return WhisperEnglish(md / "whisper-tiny-en", threads=threads)
 
 
-def _load_indic(md: Path, threads: int):
+def _load_indic(md: Path, cfg: EngineConfig):
     from .asr import IndicConformerASR
 
-    return IndicConformerASR(md / "indic-conformer", threads=threads)
+    d = md / ("indic-conformer" if cfg.asr_tier == "fp32" else f"indic-conformer-{cfg.asr_tier}")
+    if not d.exists():
+        raise FileNotFoundError(f"{d.name} missing: run `python scripts/quantize.py --tier {cfg.asr_tier}`")
+    return IndicConformerASR(d, threads=cfg.threads_per_model, mode=cfg.asr_mode,
+                             languages=[x for x in cfg.languages if x in INDIC])
 
 
 class Engine:

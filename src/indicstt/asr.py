@@ -44,7 +44,7 @@ class Encoded:
 
 class IndicConformerASR:
     def __init__(self, model_dir: str | Path, threads: int = 4, mode: str = "rnnt",
-                 languages: list[str] | None = None, union_ids: bool = False):
+                 languages: list[str] | None = None):
         import onnxruntime as ort
 
         self.dir = Path(model_dir)
@@ -56,9 +56,6 @@ class IndicConformerASR:
                 "`python scripts/fetch_models.py --only indic-conformer`"
             )
         self.mode = mode
-        # union_ids=True feeds emitted tokens back to the prediction net as union-vocab ids
-        # (mask_idx[lang][tok]); False reproduces upstream, which feeds raw per-language ids.
-        self.union_ids = union_ids
         so = ort.SessionOptions()
         so.intra_op_num_threads = threads
         so.inter_op_num_threads = 1
@@ -165,7 +162,7 @@ class IndicConformerASR:
                 tok = int(post.run(["output"], {"input": z})[0].reshape(-1).argmax())
                 if tok == BLANK:
                     break
-                hyp.append(int(self.mask_idx[lang][tok]) if self.union_ids else tok)
+                hyp.append(tok)  # per-language id, as upstream (union ids measured: 568% WER on hi)
                 out.append(tok)
                 h, c = h2, c2
                 g_cache = None

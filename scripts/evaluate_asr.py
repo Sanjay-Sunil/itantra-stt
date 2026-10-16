@@ -33,7 +33,7 @@ def main() -> None:
     t = time.perf_counter()
     asr = IndicConformerASR(ROOT / args.model, threads=args.threads)
     load_s = time.perf_counter() - t
-    modes = ["ctc", "rnnt", "rnnt_union"]
+    modes = ["ctc", "rnnt"]
     res: dict = {"name": args.name, "model": args.model, "threads": args.threads, "load_s": round(load_s, 1),
                  "per_language": {}}
     tot_audio = tot_enc = 0.0
@@ -48,9 +48,8 @@ def main() -> None:
             enc = asr.encode(audio)
             tot_enc += time.perf_counter() - t
             for m in modes:
-                asr.union_ids = m == "rnnt_union"
                 t = time.perf_counter()
-                hyp = asr.decode(enc, lang, "ctc" if m == "ctc" else "rnnt")
+                hyp = asr.decode(enc, lang, m)
                 tot_dec[m] += time.perf_counter() - t
                 we, wn = wer_counts(r["text"], hyp)
                 ce, cn = cer_counts(r["text"], hyp)

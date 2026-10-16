@@ -42,6 +42,8 @@ class MelConfig:
     preemph: float = 0.97
     log_guard: float = 2.0**-24
     normalize: str | None = "per_feature"
+    pad_mode: str = "constant"  # NeMo FilterbankFeatures: constant; IndicConformer preprocessor.ts: reflect
+    extra_frame: bool = False  # IndicConformer counts T // hop + 1 frames
 
 
 @lru_cache(maxsize=8)
@@ -56,6 +58,7 @@ def _fb_and_window(cfg: MelConfig):
 
 
 DEFAULT_MEL = MelConfig()
+INDIC_CONFORMER_MEL = MelConfig(pad_mode="reflect", extra_frame=True)
 
 
 def log_mel(audio: np.ndarray, cfg: MelConfig = DEFAULT_MEL) -> np.ndarray:
@@ -65,17 +68,19 @@ def log_mel(audio: np.ndarray, cfg: MelConfig = DEFAULT_MEL) -> np.ndarray:
         x = np.concatenate([x[:1], x[1:] - cfg.preemph * x[:-1]])
     fb, window = _fb_and_window(cfg)
     pad = cfg.n_fft // 2
-    x = np.pad(x, pad, mode="constant")
+    x = np.pad(x, pad, mode=cfg.pad_mode)
     n_frames = 1 + (len(x) - cfg.n_fft) // cfg.hop_length
     frames = np.lib.stride_tricks.as_strided(
         x, (n_frames, cfg.n_fft), (x.strides[0] * cfg.hop_length, x.strides[0]), writeable=False
     )
     power = np.abs(np.fft.rfft(frames * window, axis=1)) ** 2
     mel = np.log(fb.astype(np.float64) @ power.T + cfg.log_guard)
-    seq_len = max(1, len(audio) // cfg.hop_length)  # NeMo get_seq_len: floor((T + 2*(n_fft//2) - n_fft) / hop)
+    # NeMo get_seq_len: floor((T + 2*(n_fft//2) - n_fft) / hop); IndicConformer adds one
+    seq_len = max(1, len(audio) // cfg.hop_length + int(cfg.extra_frame))
     mel = mel[:, :seq_len]
     if cfg.normalize == "per_feature":
         mean = mel.mean(axis=1, keepdims=True)
-        std = np.sqrt(((mel - mean) ** 2).sum(axis=1, keepdims=True) / max(1, seq_len - 1)) + 1e-5
+        var = ((mel - mean) ** 2).sum(axis=1, keepdims=True) / max(1, seq_len - 1)
+        std = np.sqrt(np.maximum(var, 2.0**-24)) + 1e-5
         mel = (mel - mean) / std
     return mel.astype(np.float32)

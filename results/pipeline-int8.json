@@ -1,0 +1,46 @@
+{
+ "tier": "int8",
+ "profiles": {
+  "hi,en": {
+   "pipeline_wer": 9.16,
+   "oracle_wer": 8.59,
+   "segment_language_accuracy": 100.0,
+   "segments": 29,
+   "words": 524,
+   "gap": 0.57
+  },
+  "ta,te,en": {
+   "pipeline_wer": 17.37,
+   "oracle_wer": 15.14,
+   "segment_language_accuracy": 93.9,
+   "segments": 33,
+   "words": 403,
+   "gap": 2.23
+  },
+  "or,bn,hi": {
+   "pipeline_wer": 15.71,
+   "oracle_wer": 14.38,
+   "segment_language_accuracy": 100.0,
+   "segments": 29,
+   "words": 452,
+   "gap": 1.33
+  },
+  "gu,mr,hi": {
+   "pipeline_wer": 13.67,
+   "oracle_wer": 13.67,
+   "segment_language_accuracy": 100.0,
+   "segments": 34,
+   "words": 512,
+   "gap": 0.0
+  },
+  "kn,ml,en": {
+   "pipeline_wer": 14.8,
+   "oracle_wer": 14.8,
+   "segment_language_accuracy": 96.0,
+   "segments": 25,
+   "words": 358,
+   "gap": 0.0
+  }
+ },
+ "command": "python scripts/evaluate_pipeline.py --profiles hi,en ta,te,en or,bn,hi gu,mr,hi kn,ml,en --clips 5 --parts 4 --tier int8 --seed 0"
+}

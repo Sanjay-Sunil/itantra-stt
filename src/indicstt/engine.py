@@ -25,6 +25,8 @@ def _new_run_options():
     import onnxruntime as ort
 
     return ort.RunOptions()
+
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -56,7 +58,7 @@ class _Stages:
         self.english_model = None
         self.mt = None
         self.load_errors: dict[str, str] = {}
-        self._runs: dict[int, Any] = {}  # seq -> onnxruntime.RunOptions of an in-flight encoder run
+        self._runs: dict[int, Any] = {}  # id(segment) -> onnxruntime.RunOptions of an in-flight encoder run
         self._run_lock = threading.Lock()
         if not cfg.manual_language and len(cfg.languages) > 1:
             self._try("lid_model", lambda: _load_lid(md, cfg.threads_per_model, cfg.lid_tier))
@@ -80,7 +82,7 @@ class _Stages:
         res = self._lid_decide(seg)
         if res[0] == "en" and res[1] >= EN_CANCEL_CONFIDENCE and self.indic_model is not None:
             with self._run_lock:
-                ro = self._runs.setdefault(seg.seq, _new_run_options())
+                ro = self._runs.setdefault(id(seg), _new_run_options())
                 ro.terminate = True
         return res
 
@@ -120,7 +122,7 @@ class _Stages:
         if self.indic_model is None:
             return None
         with self._run_lock:
-            ro = self._runs.setdefault(seg.seq, _new_run_options())
+            ro = self._runs.setdefault(id(seg), _new_run_options())
         t = time.perf_counter()
         try:
             if ro.terminate:  # LID already said English
@@ -133,7 +135,7 @@ class _Stages:
             raise
         finally:
             with self._run_lock:
-                self._runs.pop(seg.seq, None)
+                self._runs.pop(id(seg), None)
         seg.timings["encoder"] = round((time.perf_counter() - t) * 1000, 1)
         return enc
 
@@ -171,8 +173,15 @@ class _Stages:
         if self.indic_model is None or enc is None:
             seg.flags.append(FLAG_NO_ASR)
             return
-        seg.text = self.indic_model.decode(enc, lang)
+        seg.text = self.indic_model.decode(enc, lang, self.cfg.asr_mode)
         seg.timings["decode"] = round((time.perf_counter() - t) * 1000, 1)
+
+    def with_config(self, cfg: EngineConfig) -> _Stages:
+        """Same loaded models, different per-request options (languages, target, mode)."""
+        other = object.__new__(_Stages)
+        other.__dict__.update(self.__dict__)
+        other.cfg = cfg
+        return other
 
     # F
     def translate(self, seg: Segment, target: str) -> None:
@@ -214,7 +223,6 @@ class Engine:
             raise ValueError(f"unsupported language(s): {bad}")
         t = time.perf_counter()
         self.stages = _Stages(self.cfg)
-        self.vad_model = SileroVAD(str(Path(self.cfg.models_dir) / "silero-vad/onnx/model.onnx"))
         self.warmup()
         self.load_ms = (time.perf_counter() - t) * 1000
         self.events: queue.Queue = queue.Queue()
@@ -237,44 +245,70 @@ class Engine:
     def load_errors(self) -> dict[str, str]:
         return self.stages.load_errors
 
+    def derive(self, **overrides) -> Engine:
+        """A lightweight engine for one request: same loaded models, different options.
+
+        Allowed overrides: languages, target_language, manual_language, asr_mode, lid_ctc, asr_workers,
+        mt_workers, vad. The languages must be ones this engine loaded models for.
+        """
+        import dataclasses
+
+        cfg = dataclasses.replace(self.cfg, **overrides)
+        bad = [x for x in [*cfg.languages, cfg.target_language] if x and x not in LANGUAGES]
+        if bad:
+            raise ValueError(f"unsupported language(s): {bad}")
+        if cfg.target_language and self.stages.mt is None:
+            from .mt import Translator
+
+            self.stages.mt = Translator(Path(cfg.models_dir), cfg.threads_per_model)
+        other = object.__new__(Engine)
+        other.cfg = cfg
+        other.stages = self.stages.with_config(cfg)
+        other.load_ms = 0.0
+        other.events = queue.Queue()
+        other._source = None
+        return other
+
     def stream(self, source: AudioSource) -> Iterator[Segment]:
         """Run the pipeline on a live or file source; yields segments in speaking order."""
         self._source = source
-        self.vad_model.reset()
-        self._agc = GainControl() if self.cfg.vad.agc else None
-        segmenter = Segmenter(self._timed_vad, self.cfg.vad)
+        # per-stream VAD state, so one Engine can serve several streams at once
+        vad_model = SileroVAD(str(Path(self.cfg.models_dir) / "silero-vad/onnx/model.onnx"))
+        agc = GainControl() if self.cfg.vad.agc else None
+        vad_ms = [0.0]
+
+        def scorer(window: np.ndarray) -> float:
+            t = time.perf_counter()
+            p = vad_model(agc(window) if agc else window)
+            vad_ms[0] += (time.perf_counter() - t) * 1000
+            return p
+
+        def submit(seg: Segment) -> None:
+            seg.timings["vad"] = round(vad_ms[0], 1)  # VAD compute spent on this segment's span
+            vad_ms[0] = 0.0
+            seg.timings["finalized_at"] = time.time()
+            sched.submit(seg)
+
+        segmenter = Segmenter(scorer, self.cfg.vad)
         sched = Scheduler(self.stages, SchedulerConfig(
             asr_workers=self.cfg.asr_workers, mt_workers=self.cfg.mt_workers,
             target_language=self.cfg.target_language,
         ))
         sched.events = self.events
         sched.start()
-        self._vad_ms = 0.0
 
         def vad_thread():  # A: never waits on downstream stages
             try:
                 for chunk in source.chunks():
                     for seg in segmenter.push(chunk):
-                        self._submit(sched, seg)
+                        submit(seg)
                 for seg in segmenter.flush():
-                    self._submit(sched, seg)
+                    submit(seg)
             finally:
                 sched.close(wait=True)
 
         threading.Thread(target=vad_thread, name="vad", daemon=True).start()
         yield from sched.results()
-
-    def _timed_vad(self, window: np.ndarray) -> float:
-        t = time.perf_counter()
-        p = self.vad_model(self._agc(window) if self._agc else window)
-        self._vad_ms += (time.perf_counter() - t) * 1000
-        return p
-
-    def _submit(self, sched: Scheduler, seg: Segment) -> None:
-        seg.timings["vad"] = round(self._vad_ms, 1)  # VAD compute spent on this segment's span
-        self._vad_ms = 0.0
-        seg.timings["finalized_at"] = time.time()
-        sched.submit(seg)
 
     def stop(self) -> None:
         if self._source:

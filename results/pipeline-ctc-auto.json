@@ -1,0 +1,30 @@
+{
+ "tier": "int8",
+ "profiles": {
+  "ta,te,en": {
+   "pipeline_wer": 24.07,
+   "oracle_wer": 23.28,
+   "segment_language_accuracy": 100.0,
+   "segments": 24,
+   "words": 378,
+   "gap": 0.79
+  },
+  "or,bn,hi": {
+   "pipeline_wer": 13.12,
+   "oracle_wer": 12.9,
+   "segment_language_accuracy": 100.0,
+   "segments": 26,
+   "words": 465,
+   "gap": 0.22
+  },
+  "kn,ml,en": {
+   "pipeline_wer": 18.33,
+   "oracle_wer": 21.56,
+   "segment_language_accuracy": 100.0,
+   "segments": 23,
+   "words": 371,
+   "gap": -3.23
+  }
+ },
+ "command": "python scripts/evaluate_pipeline.py --profiles ta,te,en or,bn,hi kn,ml,en --clips 5 --parts 4 --tier int8 --seed 0 --lid-ctc auto"
+}

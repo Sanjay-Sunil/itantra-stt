@@ -15,7 +15,7 @@ import numpy as np
 from .audio import AudioSource, BufferSource, load_audio
 from .scheduler import Scheduler, SchedulerConfig
 from .segment import FLAG_LOW_CONFIDENCE, FLAG_UNEXPECTED_LANGUAGE, INDIC, LANGUAGES, Segment
-from .vad import Segmenter, SileroVAD, VADConfig
+from .vad import GainControl, Segmenter, SileroVAD, VADConfig
 
 FLAG_NO_ASR = "asr_unavailable"
 EN_CANCEL_CONFIDENCE = 0.8  # LID confidence for English above which the parallel Indic encoder is cancelled
@@ -238,6 +238,7 @@ class Engine:
         """Run the pipeline on a live or file source; yields segments in speaking order."""
         self._source = source
         self.vad_model.reset()
+        self._agc = GainControl() if self.cfg.vad.agc else None
         segmenter = Segmenter(self._timed_vad, self.cfg.vad)
         sched = Scheduler(self.stages, SchedulerConfig(
             asr_workers=self.cfg.asr_workers, mt_workers=self.cfg.mt_workers,
@@ -262,7 +263,7 @@ class Engine:
 
     def _timed_vad(self, window: np.ndarray) -> float:
         t = time.perf_counter()
-        p = self.vad_model(window)
+        p = self.vad_model(self._agc(window) if self._agc else window)
         self._vad_ms += (time.perf_counter() - t) * 1000
         return p
 

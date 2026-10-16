@@ -50,3 +50,16 @@ def test_unfinished_speech_flushed():
     audio = make_stream([(0, 5), (1, 30)])
     segs = run(audio, 512)
     assert len(segs) == 1
+
+
+def test_gain_control_boosts_quiet_and_caps_gain():
+    from indicstt.vad import GainControl
+
+    g = GainControl(target=0.3, max_gain=30.0)
+    loud = np.full(WINDOW, 0.6, dtype=np.float32)
+    assert abs(float(g(loud).max()) - 0.3) < 1e-6  # loud speech is scaled down to target
+    quiet = np.full(WINDOW, 0.002, dtype=np.float32)
+    for _ in range(300):  # ~10 s: envelope releases toward the quiet level
+        out = g(quiet)
+    assert float(out.max()) <= 0.002 * 30.0 + 1e-6  # never more than max_gain
+    assert float(out.max()) > 0.01  # but clearly boosted

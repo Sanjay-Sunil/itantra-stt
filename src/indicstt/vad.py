@@ -42,6 +42,22 @@ class SileroVAD:
         return float(out.reshape(-1)[0])
 
 
+class GainControl:
+    """Automatic gain on the VAD's input only (ASR still gets the raw audio).
+
+    Tracks a peak envelope with ~1 s release and scales windows toward `target`, so a quiet speaker right after
+    a loud one is still detected. Measured: no false segments on 20 s of hiss or low rumble (results/vad.md).
+    """
+
+    def __init__(self, target: float = 0.3, max_gain: float = 30.0, floor: float = 1e-3, release: float = 0.97):
+        self.target, self.max_gain, self.floor, self.release = target, max_gain, floor, release
+        self.env = floor
+
+    def __call__(self, window: np.ndarray) -> np.ndarray:
+        self.env = max(float(np.abs(window).max()), self.env * self.release, self.floor)
+        return window * min(self.max_gain, self.target / self.env)
+
+
 @dataclass
 class VADConfig:
     threshold: float = 0.5  # start speech when p >= threshold
@@ -50,6 +66,7 @@ class VADConfig:
     min_silence_ms: int = 400
     speech_pad_ms: int = 96
     max_segment_s: float = 30.0
+    agc: bool = True  # GainControl before Silero
 
 
 class Segmenter:

@@ -1,14 +1,51 @@
+# Python / tooling
 .venv*/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+build/
+dist/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Models, weights, data (fetched by scripts, never committed)
 models/
-logs/
 data/
 *.onnx
 *.onnx.data
+*.nemo
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.npy
+*.npz
+*.parquet
+
+# Audio
 *.wav
 *.flac
 *.mp3
+*.ogg
+*.opus
+
+# Logs and runtime output
+logs/
+*.log
+nohup.out
+
+# Secrets / local config
 .env
+.env.*
+.streamlit/secrets.toml
+*.token
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

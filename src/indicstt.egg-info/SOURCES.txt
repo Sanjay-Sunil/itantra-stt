@@ -1,6 +1,0 @@
-pyproject.toml
-src/indicstt.egg-info/PKG-INFO
-src/indicstt.egg-info/SOURCES.txt
-src/indicstt.egg-info/dependency_links.txt
-src/indicstt.egg-info/requires.txt
-src/indicstt.egg-info/top_level.txt

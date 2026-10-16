@@ -67,5 +67,11 @@ per-language token ids; feeding union-vocab ids gives 568% WER.
 
 | | Accuracy | Notes |
 |---|---|---|
-| FP32 (116 MB) | 98.89% | errors: mr→hi, en→bn |
-| INT8 (29 MB) | pending | |
+| FP32 (116 MB) | 98.89% | errors: mr→hi, en→bn · 272 ms per 8 s audio (4 threads) |
+| Dynamic INT8 (29 MB) | 98.33% | 877 ms per 8 s audio — 3x *slower* (ConvInteger kernels); rejected |
+| **Static QDQ INT8, per-channel (30 MB), shipped** | **99.44%** | **103 ms per 8 s audio**; error: mr→hi |
+
+Static INT8 is calibrated on 3 smoke clips per language, which overlap the 20 evaluation clips — accuracy
+slightly optimistic. Commands: `python scripts/quantize.py --lid`,
+`python scripts/evaluate_lid.py --onnx ambernet.int8.onnx --name lid-int8-static --candidates hi gu mr kn ml ta te bn en`.
+AmberNet has no Odia class; Odia relies on the IndicConformer CTC language check (not yet measured).

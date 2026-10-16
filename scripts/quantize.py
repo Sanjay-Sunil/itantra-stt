@@ -146,9 +146,41 @@ def main() -> None:
         print(f"{args.name or args.tier}: {total:.0f} MB in {out}")
 
     if args.lid:
-        d = ROOT / "models/lid-ambernet"
-        int8(d / "ambernet.onnx", d / "ambernet.int8.onnx", ops=("MatMul", "Gemm", "Conv"))
-        print(f"lid: {mb(d / 'ambernet.onnx'):.0f} → {(d / 'ambernet.int8.onnx').stat().st_size / 1e6:.0f} MB")
+        lid_static_int8()
+
+
+def lid_static_int8() -> None:
+    """AmberNet is conv-only: static QDQ INT8 (calibrated activations) so ORT runs fast QLinearConv kernels.
+
+    Dynamic INT8 measured 3x slower than FP32 on CPU (ConvInteger). Calibration: 3 smoke clips per language.
+    """
+    import json
+
+    import numpy as np
+    from onnxruntime.quantization import CalibrationDataReader, QuantFormat, quantize_static
+
+    from indicstt.audio import load_audio
+    from indicstt.features import log_mel
+
+    d = ROOT / "models/lid-ambernet"
+
+    class Reader(CalibrationDataReader):
+        def __init__(self):
+            feeds = []
+            for lang in json.loads((d / "labels.json").read_text()):
+                for p in sorted((ROOT / "data/smoke" / lang).glob("*.json"))[:3]:
+                    x = log_mel(load_audio(ROOT / json.loads(p.read_text())["audio"]))
+                    feeds.append({"features": x[None], "length": np.array([x.shape[1]], dtype=np.int64)})
+            self.it = iter(feeds)
+
+        def get_next(self):
+            return next(self.it, None)
+
+    quantize_static(str(d / "ambernet.onnx"), str(d / "ambernet.int8.onnx"), Reader(),
+                    quant_format=QuantFormat.QDQ, per_channel=True, weight_type=QuantType.QInt8,
+                    activation_type=QuantType.QUInt8, op_types_to_quantize=["Conv", "MatMul", "Gemm"])
+    print(f"lid: {(d / 'ambernet.onnx').stat().st_size / 1e6:.0f} → "
+          f"{(d / 'ambernet.int8.onnx').stat().st_size / 1e6:.0f} MB")
 
 
 if __name__ == "__main__":

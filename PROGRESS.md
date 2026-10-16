@@ -43,13 +43,14 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 | MT `mt.py` (3 IndicTrans2 bundles) | done, smoke-tested |
 | English ASR `english.py` | done, WER 10.0% on smoke |
 | NeMo-parity features `features.py` | done |
-| LID `lid.py` (AmberNet ONNX) | done; final choice deferred by user |
+| LID `lid.py` (AmberNet ONNX, static INT8) | done; final model choice deferred by user |
 | ASR runner `asr.py` (IndicConformer) | done; exact parity with upstream 9/9 (CTC and RNN-T) on hi/ta/or; numpy preprocessor MAE 1e-6 vs preprocessor.ts |
 | WER/CER eval `evaluation.py`, `scripts/evaluate_asr.py` | done |
 | Engine API `engine.py` | done; English path verified end-to-end; Indic segments tagged `asr_unavailable` until IndicConformer lands |
 | Streamlit UI `app/streamlit_app.py` | done; verified via AppTest (8 segments, RTF 0.07) |
 | Demo clip builder `scripts/make_demo_clip.py` | done → data/demo/ |
-| Quantization `scripts/quantize.py` (int8, int4mixed, LID int8) | written; FP32 baseline running, then quantize + gate |
+| Quantization `scripts/quantize.py` | done: ASR INT8 675 MB (mean WER 19.05%), INT4-mixed 535 MB (19.39%), LID static INT8 30 MB (99.44%). See results/quantization.md |
+| Engine + UI on INT8 IndicConformer | done; tier + decoder selectable in sidebar |
 
 Measured numbers: `results/`.
 
@@ -66,3 +67,5 @@ Measured numbers: `results/`.
 - 2026-10-16 — Engine + Streamlit UI working. Known issue: Silero VAD misses a very quiet clip right after loud speech (60x level jump in a spliced test); demo clips are level-matched. Possible fix later: AGC before VAD.
 - Next: IndicConformer runner (needs HF access) → CTC-mask language scoring (covers Odia) → INT8/INT4 quantization + measured WER/RTF/RAM table.
 - 2026-10-16 — IndicConformer in. Gotchas: (1) upstream preprocessor uses reflect pad + T//hop+1 frames; (2) effective RNN-T SOS is 5632 (upstream ignores config.json's 256); (3) prediction net must get per-language token ids (union ids → 568% WER). User requirement: ship INT8 or lower for every model (FP32 = reference only).
+- 2026-10-16 — Quantized everything to INT8 or lower (user requirement). Key finding: ORT dynamic INT8 on depthwise convs costs +3.4 WER (hi) → those 0.2M weights stay FP32; per-channel scales. LID: dynamic INT8 was 3x slower → static QDQ INT8 is 2.6x faster than FP32. Partial FP32 ref only for hi/gu (user stopped full FP32 run).
+- Next: measure CTC-based Odia LID; English path still runs the Indic encoder in parallel (wasted ~0.6 s) — skip when LID says en; real-voice code-switch test from user.

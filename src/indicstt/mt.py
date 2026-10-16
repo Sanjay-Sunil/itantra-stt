@@ -16,6 +16,8 @@ from pathlib import Path
 
 import numpy as np
 
+from .ortutil import SharedWeights
+
 FLORES = {
     "hi": "hin_Deva", "gu": "guj_Gujr", "mr": "mar_Deva", "kn": "kan_Knda", "ml": "mal_Mlym",
     "ta": "tam_Taml", "te": "tel_Telu", "or": "ory_Orya", "bn": "ben_Beng", "en": "eng_Latn",
@@ -34,44 +36,6 @@ def _indic_processor():
     return IndicProcessor(inference=True)
 
 
-class _SharedWeights:
-    """Feeds external-data initializers to sessions as memory-mapped arrays, one array per distinct byte range.
-
-    Identical (file, offset, length) ranges map to the same array, so graphs that share weights share memory.
-    Pages come from the file mapping (page cache) instead of private heap copies.
-    """
-
-    def __init__(self):
-        self._maps: dict[Path, np.memmap] = {}
-        self._arrays: dict[tuple, object] = {}  # (file, offset, length) -> OrtValue
-
-    def options(self, model_path: Path, threads: int):
-        import onnx
-        import onnxruntime as ort
-        from onnx.helper import tensor_dtype_to_np_dtype
-
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = threads
-        if os.environ.get("INDICSTT_MT_PREPACK", "0") != "1":
-            # pre-packing would give every session a private copy of the weights in ORT's packed format
-            so.add_session_config_entry("session.disable_prepacking", "1")
-        graph = onnx.load(str(model_path), load_external_data=False).graph
-        for init in graph.initializer:
-            if init.data_location != onnx.TensorProto.EXTERNAL:
-                continue
-            kv = {e.key: e.value for e in init.external_data}
-            f = model_path.parent / kv["location"]
-            key = (f, int(kv.get("offset", 0)), int(kv["length"]))
-            if key not in self._arrays:
-                if f not in self._maps:
-                    self._maps[f] = np.memmap(f, dtype=np.uint8, mode="r")
-                raw = self._maps[f][key[1] : key[1] + key[2]]
-                arr = raw.view(tensor_dtype_to_np_dtype(init.data_type)).reshape(tuple(init.dims))
-                self._arrays[key] = ort.OrtValue.ortvalue_from_numpy(arr)
-            so.add_initializer(init.name, self._arrays[key])
-        return so
-
-
 class IndicTransONNX:
     """One IndicTrans2 ONNX bundle with greedy decoding and KV cache."""
 
@@ -81,16 +45,17 @@ class IndicTransONNX:
 
         p = Path(path)
         prov = ["CPUExecutionProvider"]
-        self._shared = _SharedWeights()  # keeps memory-mapped weight arrays alive for the sessions' lifetime
-        self.enc = ort.InferenceSession(str(p / "encoder_model.onnx"),
-                                        self._shared.options(p / "encoder_model.onnx", threads), providers=prov)
+        prepack = os.environ.get("INDICSTT_MT_PREPACK", "0") == "1"
+        self._shared = SharedWeights()  # keeps memory-mapped weight arrays alive for the sessions' lifetime
+        enc_opts = self._shared.options(p / "encoder_model.onnx", threads, prepack=prepack, arena=False)
+        self.enc = ort.InferenceSession(str(p / "encoder_model.onnx"), enc_opts, providers=prov)
         # decoder and decoder_with_past reference the same bytes of decoder_shared.onnx.data under different
         # names; without sharing, ONNX Runtime loads those ~100 MB twice
-        self.dec = ort.InferenceSession(str(p / "decoder_model.onnx"),
-                                        self._shared.options(p / "decoder_model.onnx", threads), providers=prov)
-        self.dec_past = ort.InferenceSession(str(p / "decoder_with_past_model.onnx"),
-                                             self._shared.options(p / "decoder_with_past_model.onnx", threads),
-                                             providers=prov)
+        # arena off: measured no speed difference for the MT decoders (unlike Whisper)
+        dec_opts = self._shared.options(p / "decoder_model.onnx", threads, prepack=prepack, arena=False)
+        self.dec = ort.InferenceSession(str(p / "decoder_model.onnx"), dec_opts, providers=prov)
+        past_opts = self._shared.options(p / "decoder_with_past_model.onnx", threads, prepack=prepack, arena=False)
+        self.dec_past = ort.InferenceSession(str(p / "decoder_with_past_model.onnx"), past_opts, providers=prov)
         self.n_layers = (len(self.dec.get_outputs()) - 1) // 4
         self.src_tok = Tokenizer.from_file(str(p / "tokenizer_src.json"))
         self.tgt_tok = Tokenizer.from_file(str(p / "tokenizer_tgt.json"))

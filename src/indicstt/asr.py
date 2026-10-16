@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 
 from .features import INDIC_CONFORMER_MEL, log_mel
+from .ortutil import plain_options
 
 BLANK = 256  # per-language blank (257-way heads)
 # Start token = union-vocab blank (5633 - 1). Upstream's config.json says 256, but its from_pretrained()
@@ -56,17 +57,18 @@ class IndicConformerASR:
                 "`python scripts/fetch_models.py --only indic-conformer`"
             )
         self.mode = mode
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = threads
-        so.inter_op_num_threads = 1
-        small = ort.SessionOptions()
-        small.intra_op_num_threads = 1  # tiny per-token graphs: threading overhead dominates
+        # Memory (results/memory.md): no arena for one-shot graphs; the encoder also skips weight pre-packing so its
+        # weights stay in ORT's memory-mapped external-data file instead of a private packed copy (−660 MB
+        # private, ~+10% encoder time). Small graphs keep pre-packing.
+        so = plain_options(threads, prepack=True, arena=False)
+        # tiny per-token graphs: 1 thread (threading overhead dominates); arena on (allocating per token is slow)
+        small = plain_options(1, prepack=True, arena=True)
         prov = ["CPUExecutionProvider"]
 
         def sess(name, opts=so):
             return ort.InferenceSession(str(a / f"{name}.onnx"), opts, providers=prov)
 
-        self.encoder = sess("encoder")
+        self.encoder = sess("encoder", plain_options(threads, prepack=False, arena=False))
         self.ctc = sess("ctc_decoder")
         self.pred = sess("rnnt_decoder", small)
         self.joint_enc = sess("joint_enc")

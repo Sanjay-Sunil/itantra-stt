@@ -8,6 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
+from .ortutil import plain_options
+
 N_FFT, HOP, N_MELS, N_SAMPLES = 400, 160, 80, 480000
 SOT, NO_TIMESTAMPS, EOT = 50257, 50362, 50256
 
@@ -61,11 +63,11 @@ class WhisperEnglish:
         from tokenizers import Tokenizer
 
         p = Path(path)
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = threads
+        so = plain_options(threads, prepack=True, arena=False)  # encoder: arena off −72 MB, same speed
+        so_dec = plain_options(threads, prepack=True, arena=True)  # per-token loop: arena off is 3.5x slower
         prov = ["CPUExecutionProvider"]
         self.enc = ort.InferenceSession(str(p / "onnx/encoder_model_int8.onnx"), so, providers=prov)
-        self.dec = ort.InferenceSession(str(p / "onnx/decoder_model_merged_int8.onnx"), so, providers=prov)
+        self.dec = ort.InferenceSession(str(p / "onnx/decoder_model_merged_int8.onnx"), so_dec, providers=prov)
         self.tok = Tokenizer.from_file(str(p / "tokenizer.json"))
         self.past_names = [i.name for i in self.dec.get_inputs() if i.name.startswith("past_key_values")]
         self.n_layers = len(self.past_names) // 4

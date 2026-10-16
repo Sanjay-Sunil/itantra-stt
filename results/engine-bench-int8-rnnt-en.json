@@ -8,54 +8,54 @@
  ],
  "target": "en",
  "audio_s": 62.7,
- "load_and_warmup_s": 6.7,
+ "load_and_warmup_s": 6.1,
  "segments": [
   {
    "seq": 0,
    "lang": "en",
    "audio_s": 7.68,
    "mt": false,
-   "time_to_text_ms": 1164,
+   "time_to_text_ms": 1239,
    "flags": []
   },
   {
    "seq": 1,
    "lang": "hi",
-   "audio_s": 9.38,
+   "audio_s": 9.31,
    "mt": true,
-   "time_to_text_ms": 1504,
+   "time_to_text_ms": 1725,
    "flags": []
   },
   {
    "seq": 2,
    "lang": "en",
-   "audio_s": 10.37,
+   "audio_s": 10.43,
    "mt": false,
-   "time_to_text_ms": 1291,
+   "time_to_text_ms": 1474,
    "flags": []
   },
   {
    "seq": 3,
    "lang": "ta",
-   "audio_s": 4.48,
+   "audio_s": 4.77,
    "mt": true,
-   "time_to_text_ms": 841,
+   "time_to_text_ms": 1056,
    "flags": []
   },
   {
    "seq": 4,
    "lang": "ta",
-   "audio_s": 5.15,
+   "audio_s": 5.18,
    "mt": true,
-   "time_to_text_ms": 784,
+   "time_to_text_ms": 937,
    "flags": []
   },
   {
    "seq": 5,
    "lang": "ta",
-   "audio_s": 2.14,
+   "audio_s": 2.18,
    "mt": true,
-   "time_to_text_ms": 441,
+   "time_to_text_ms": 563,
    "flags": []
   },
   {
@@ -63,7 +63,7 @@
    "lang": "ta",
    "audio_s": 4.58,
    "mt": true,
-   "time_to_text_ms": 855,
+   "time_to_text_ms": 987,
    "flags": []
   },
   {
@@ -71,18 +71,20 @@
    "lang": "ta",
    "audio_s": 5.09,
    "mt": true,
-   "time_to_text_ms": 775,
+   "time_to_text_ms": 936,
    "flags": []
   }
  ],
  "time_to_text_ms_same_language": {
-  "median": 1227,
-  "max": 1291
+  "median": 1356,
+  "max": 1474
  },
  "time_to_text_ms_with_mt": {
-  "median": 812,
-  "max": 1504
+  "median": 962,
+  "max": 1725
  },
- "peak_rss_mb": 1851,
+ "peak_rss_mb": 1655,
+ "end_rss_private_mb": 793,
+ "end_rss_file_mb": 840,
  "command": "python scripts/benchmark_engine.py data/demo/mixed_en_hi_ta.wav --langs hi en ta --target en --tier int8 --mode rnnt"
 }

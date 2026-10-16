@@ -35,3 +35,30 @@ to every session, and disable pre-packing so sessions use those buffers directly
 
 Translations: 31/32 identical on FLEURS hi/ta/or/bn sentences; the 1 difference is an equally valid rewording
 (different float summation order). `INDICSTT_MT_PREPACK=1` restores pre-packing.
+
+## A3. Per-model ORT settings (pre-packing, arena)
+
+`logs/model_mem_probe.py`, 20 s (encoder) / 8 s (others) random input, fresh process per row. Private MB after run.
+
+| Model | default | arena off | no pre-pack | no pre-pack + arena off | Shipped |
+|---|---|---|---|---|---|
+| IndicConformer encoder | 727 (+101 file), 1075 ms | 564, 1124 ms | 231 (+608 file), 1133 ms | **68 (+608 file), 1181 ms** | no pre-pack + arena off |
+| AmberNet LID | 150, 107 ms | **121, 115 ms** | 115, 203 ms | 125, 205 ms | arena off |
+| Whisper encoder | 127, 203 ms | **55, 197 ms** | 125, 180 ms | 74, 187 ms | arena off |
+| CTC head | 52 | **41** | 55 | 52 | arena off |
+
+Outputs identical in every configuration. ORT already memory-maps external-data files; pre-packing is what
+copied the encoder's weights into private memory. Per-token loop graphs (Whisper decoder, RNN-T
+prediction/joint) keep the arena: without it the Whisper decoder took 1,361 ms vs 390 ms per clip.
+
+## Whole engine, real-time benchmark (`scripts/benchmark_engine.py data/demo/mixed_en_hi_ta.wav --tier int8`)
+
+| | Before | After A1 + A3 (3 runs) |
+|---|---|---|
+| Peak RSS | 1,851 MB | 1,655–1,761 MB |
+| Private RSS at end | — | 793–867 MB (plus ~840 MB file-backed, evictable) |
+| Time-to-text, Indic + MT (median) | 0.81 s | 0.96–1.05 s |
+| Time-to-text, English (median) | 1.23 s | 1.24–1.36 s |
+
+Trade-off: −100 to −200 MB peak RSS (and most weights now evictable page cache) for ~+0.2 s on translated
+segments, mainly MT without pre-packing and the encoder without pre-packing. Run-to-run noise is ~±0.1 s.

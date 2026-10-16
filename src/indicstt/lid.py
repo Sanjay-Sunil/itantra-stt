@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from .features import log_mel
+from .ortutil import plain_options
 
 
 class AmberNetLID:
@@ -20,8 +21,7 @@ class AmberNetLID:
         import onnxruntime as ort
 
         d = Path(model_dir)
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = threads
+        so = plain_options(threads, prepack=True, arena=False)  # arena off: −29 MB, same speed
         self.sess = ort.InferenceSession(str(d / onnx_name), so, providers=["CPUExecutionProvider"])
         self.labels: list[str] = json.loads((d / "labels.json").read_text())
 

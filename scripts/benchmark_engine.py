@@ -22,6 +22,14 @@ from indicstt.engine import Engine, EngineConfig
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _status_mb(key: str) -> int:
+    with open("/proc/self/status") as f:
+        for line in f:
+            if line.startswith(key + ":"):
+                return int(line.split()[1]) // 1024
+    return -1
+
+
 class RealtimeSource(AudioSource):
     """Feeds a buffer in 32 ms chunks at real-time pace, like a live microphone."""
 
@@ -68,6 +76,7 @@ def main() -> None:
         "time_to_text_ms_same_language": {"median": int(np.median(t_same)), "max": max(t_same)} if t_same else None,
         "time_to_text_ms_with_mt": {"median": int(np.median(t_mt)), "max": max(t_mt)} if t_mt else None,
         "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024),
+        "end_rss_private_mb": _status_mb("RssAnon"), "end_rss_file_mb": _status_mb("RssFile"),
         "command": f"python scripts/benchmark_engine.py {args.file} --langs {' '.join(args.langs)} "
                    f"--target {args.target} --tier {args.tier} --mode {args.mode}",
     }

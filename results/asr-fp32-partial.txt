@@ -1,0 +1,3 @@
+partial FP32 reference (stopped early by user request):
+hi ctc 9.49 rnnt 8.16
+gu ctc 17.82 rnnt 16.93

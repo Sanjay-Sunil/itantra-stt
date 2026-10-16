@@ -1,0 +1,29 @@
+{
+ "name": "sens-pre",
+ "model": "models/indic-conformer-sens-pre",
+ "threads": 8,
+ "load_s": 2.5,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 11.39,
+    "cer": 4.3
+   },
+   "rnnt": {
+    "wer": 11.2,
+    "cer": 5.14
+   }
+  }
+ },
+ "mean_wer_ctc": 11.39,
+ "mean_wer_rnnt": 11.2,
+ "audio_s": 234.7,
+ "rtf_encoder": 0.0977,
+ "rtf": {
+  "ctc": 0.0997,
+  "rnnt": 0.1063
+ },
+ "peak_rss_mb": 977,
+ "model_mb_on_disk": 682,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-sens-pre --name sens-pre --langs hi --threads 8 --n 20"
+}

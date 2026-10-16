@@ -1,0 +1,29 @@
+{
+ "name": "sens-ffn",
+ "model": "models/indic-conformer-sens-ffn",
+ "threads": 8,
+ "load_s": 3.6,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 11.76,
+    "cer": 4.35
+   },
+   "rnnt": {
+    "wer": 14.61,
+    "cer": 8.61
+   }
+  }
+ },
+ "mean_wer_ctc": 11.76,
+ "mean_wer_rnnt": 14.61,
+ "audio_s": 234.7,
+ "rtf_encoder": 0.1261,
+ "rtf": {
+  "ctc": 0.1282,
+  "rnnt": 0.1347
+ },
+ "peak_rss_mb": 2116,
+ "model_mb_on_disk": 1881,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-sens-ffn --name sens-ffn --langs hi --threads 8 --n 20"
+}

@@ -1,0 +1,39 @@
+{
+ "name": "mix-int8b",
+ "model": "models/mix-int8b-fp32heads",
+ "threads": 8,
+ "load_s": 2.7,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 11.76,
+    "cer": 4.21
+   },
+   "rnnt": {
+    "wer": 14.04,
+    "cer": 8.28
+   }
+  },
+  "gu": {
+   "ctc": {
+    "wer": 19.15,
+    "cer": 6.86
+   },
+   "rnnt": {
+    "wer": 18.26,
+    "cer": 6.77
+   }
+  }
+ },
+ "mean_wer_ctc": 15.45,
+ "mean_wer_rnnt": 16.15,
+ "audio_s": 462.2,
+ "rtf_encoder": 0.1595,
+ "rtf": {
+  "ctc": 0.1606,
+  "rnnt": 0.1839
+ },
+ "peak_rss_mb": 1162,
+ "model_mb_on_disk": 789,
+ "command": "python scripts/evaluate_asr.py --model models/mix-int8b-fp32heads --name mix-int8b --langs hi gu --threads 8 --n 20"
+}

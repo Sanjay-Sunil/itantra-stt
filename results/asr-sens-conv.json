@@ -1,0 +1,29 @@
+{
+ "name": "sens-conv",
+ "model": "models/indic-conformer-sens-conv",
+ "threads": 8,
+ "load_s": 1.9,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 9.11,
+    "cer": 2.78
+   },
+   "rnnt": {
+    "wer": 7.97,
+    "cer": 2.55
+   }
+  }
+ },
+ "mean_wer_ctc": 9.11,
+ "mean_wer_rnnt": 7.97,
+ "audio_s": 234.7,
+ "rtf_encoder": 0.0705,
+ "rtf": {
+  "ctc": 0.0727,
+  "rnnt": 0.0791
+ },
+ "peak_rss_mb": 1182,
+ "model_mb_on_disk": 902,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-sens-conv --name sens-conv --langs hi --threads 8 --n 20"
+}

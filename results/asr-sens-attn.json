@@ -1,0 +1,29 @@
+{
+ "name": "sens-attn",
+ "model": "models/indic-conformer-sens-attn",
+ "threads": 8,
+ "load_s": 3.1,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 11.57,
+    "cer": 3.98
+   },
+   "rnnt": {
+    "wer": 13.47,
+    "cer": 7.45
+   }
+  }
+ },
+ "mean_wer_ctc": 11.57,
+ "mean_wer_rnnt": 13.47,
+ "audio_s": 234.7,
+ "rtf_encoder": 0.1203,
+ "rtf": {
+  "ctc": 0.1224,
+  "rnnt": 0.1281
+ },
+ "peak_rss_mb": 1332,
+ "model_mb_on_disk": 1051,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-sens-attn --name sens-attn --langs hi --threads 8 --n 20"
+}

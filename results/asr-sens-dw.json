@@ -1,0 +1,39 @@
+{
+ "name": "sens-dw",
+ "model": "models/indic-conformer-sens-dw",
+ "threads": 8,
+ "load_s": 2.5,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 9.3,
+    "cer": 2.87
+   },
+   "rnnt": {
+    "wer": 8.92,
+    "cer": 2.82
+   }
+  },
+  "gu": {
+   "ctc": {
+    "wer": 17.59,
+    "cer": 6.4
+   },
+   "rnnt": {
+    "wer": 17.59,
+    "cer": 6.26
+   }
+  }
+ },
+ "mean_wer_ctc": 13.45,
+ "mean_wer_rnnt": 13.25,
+ "audio_s": 462.2,
+ "rtf_encoder": 0.0931,
+ "rtf": {
+  "ctc": 0.0952,
+  "rnnt": 0.102
+ },
+ "peak_rss_mb": 1042,
+ "model_mb_on_disk": 675,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-sens-dw --name sens-dw --langs hi gu --threads 8 --n 20"
+}

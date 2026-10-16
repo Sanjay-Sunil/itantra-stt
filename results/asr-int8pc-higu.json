@@ -1,0 +1,39 @@
+{
+ "name": "int8pc-higu",
+ "model": "models/indic-conformer-int8pc",
+ "threads": 8,
+ "load_s": 2.5,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 11.01,
+    "cer": 3.98
+   },
+   "rnnt": {
+    "wer": 10.63,
+    "cer": 5.0
+   }
+  },
+  "gu": {
+   "ctc": {
+    "wer": 19.15,
+    "cer": 7.04
+   },
+   "rnnt": {
+    "wer": 17.82,
+    "cer": 6.72
+   }
+  }
+ },
+ "mean_wer_ctc": 15.08,
+ "mean_wer_rnnt": 14.23,
+ "audio_s": 462.2,
+ "rtf_encoder": 0.1034,
+ "rtf": {
+  "ctc": 0.1055,
+  "rnnt": 0.1122
+ },
+ "peak_rss_mb": 1036,
+ "model_mb_on_disk": 674,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-int8pc --name int8pc-higu --langs hi gu --threads 8 --n 20"
+}

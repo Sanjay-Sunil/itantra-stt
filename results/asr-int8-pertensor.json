@@ -1,0 +1,109 @@
+{
+ "name": "int8",
+ "model": "models/indic-conformer-int8",
+ "threads": 8,
+ "load_s": 3.7,
+ "per_language": {
+  "hi": {
+   "ctc": {
+    "wer": 11.39,
+    "cer": 3.98
+   },
+   "rnnt": {
+    "wer": 11.57,
+    "cer": 4.63
+   }
+  },
+  "gu": {
+   "ctc": {
+    "wer": 19.6,
+    "cer": 6.95
+   },
+   "rnnt": {
+    "wer": 19.15,
+    "cer": 6.72
+   }
+  },
+  "mr": {
+   "ctc": {
+    "wer": 18.28,
+    "cer": 4.81
+   },
+   "rnnt": {
+    "wer": 18.28,
+    "cer": 4.94
+   }
+  },
+  "kn": {
+   "ctc": {
+    "wer": 18.44,
+    "cer": 3.92
+   },
+   "rnnt": {
+    "wer": 17.81,
+    "cer": 4.09
+   }
+  },
+  "ml": {
+   "ctc": {
+    "wer": 26.4,
+    "cer": 7.06
+   },
+   "rnnt": {
+    "wer": 30.03,
+    "cer": 7.45
+   }
+  },
+  "ta": {
+   "ctc": {
+    "wer": 31.29,
+    "cer": 14.77
+   },
+   "rnnt": {
+    "wer": 30.41,
+    "cer": 14.99
+   }
+  },
+  "te": {
+   "ctc": {
+    "wer": 23.16,
+    "cer": 7.19
+   },
+   "rnnt": {
+    "wer": 22.32,
+    "cer": 7.07
+   }
+  },
+  "or": {
+   "ctc": {
+    "wer": 33.07,
+    "cer": 17.57
+   },
+   "rnnt": {
+    "wer": 33.07,
+    "cer": 16.76
+   }
+  },
+  "bn": {
+   "ctc": {
+    "wer": 15.16,
+    "cer": 3.48
+   },
+   "rnnt": {
+    "wer": 13.03,
+    "cer": 3.0
+   }
+  }
+ },
+ "mean_wer_ctc": 21.87,
+ "mean_wer_rnnt": 21.74,
+ "audio_s": 2264.4,
+ "rtf_encoder": 0.1396,
+ "rtf": {
+  "ctc": 0.143,
+  "rnnt": 0.1494
+ },
+ "peak_rss_mb": 1091,
+ "model_mb_on_disk": 672,
+ "command": "python scripts/evaluate_asr.py --model models/indic-conformer-int8 --name int8 --langs hi gu mr kn ml ta te or bn --threads 8 --n 20"
+}

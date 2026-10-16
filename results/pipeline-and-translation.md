@@ -49,3 +49,17 @@ These are BLEU against human English references, not the docs' "87.13 SacreBLEU 
 
 Dashboard "Language test" on `data/demo/all10_languages.wav` (7 s per language, VAD-chunked): 12/13 chunks
 correct; the miss is a 1 s fragment at the end of the Telugu part. Very short chunks are the weak spot.
+
+## Can the indic-indic model replace the en-indic model? (measured: no)
+
+`python scripts/evaluate_en_to_indic.py` → `results/en-to-indic-models.json`. FLEURS English sentence → the same
+sentence in each Indic language (raw transcription as reference), 177 sentences, 9 languages.
+
+| Model | BLEU | chrF++ | ms / sentence |
+|---|---|---|---|
+| en-indic dist-200M INT8 (dedicated) | **23.1** | **55.1** | 808 |
+| indic-indic dist-320M INT8, fed English | 13.4 | 44.6 | 849 |
+
+The indic-indic model accepts English input but loses ~10 chrF++ in every language (e.g. hi 54.9 → 42.6,
+te 61.5 → 47.9). It cannot produce English at all (hi→en output is empty quotes). Decision: keep all three
+directions; save RAM by loading only the direction a user needs (no user needs both English models at once).

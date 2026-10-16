@@ -1,0 +1,116 @@
+{
+ "per_language": {
+  "hi": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 28.9,
+    "chrf++": 54.9
+   },
+   "indic-indic (fed English)": {
+    "bleu": 16.8,
+    "chrf++": 42.6
+   }
+  },
+  "gu": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 29.6,
+    "chrf++": 59.6
+   },
+   "indic-indic (fed English)": {
+    "bleu": 15.2,
+    "chrf++": 47.3
+   }
+  },
+  "mr": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 18.7,
+    "chrf++": 50.0
+   },
+   "indic-indic (fed English)": {
+    "bleu": 9.2,
+    "chrf++": 40.1
+   }
+  },
+  "kn": {
+   "n": 19,
+   "en-indic (dedicated)": {
+    "bleu": 27.2,
+    "chrf++": 59.4
+   },
+   "indic-indic (fed English)": {
+    "bleu": 16.7,
+    "chrf++": 49.1
+   }
+  },
+  "ml": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 14.0,
+    "chrf++": 53.1
+   },
+   "indic-indic (fed English)": {
+    "bleu": 7.2,
+    "chrf++": 43.9
+   }
+  },
+  "ta": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 23.7,
+    "chrf++": 59.9
+   },
+   "indic-indic (fed English)": {
+    "bleu": 14.2,
+    "chrf++": 49.0
+   }
+  },
+  "te": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 28.4,
+    "chrf++": 61.5
+   },
+   "indic-indic (fed English)": {
+    "bleu": 14.5,
+    "chrf++": 47.9
+   }
+  },
+  "or": {
+   "n": 20,
+   "en-indic (dedicated)": {
+    "bleu": 12.4,
+    "chrf++": 45.2
+   },
+   "indic-indic (fed English)": {
+    "bleu": 6.4,
+    "chrf++": 37.7
+   }
+  },
+  "bn": {
+   "n": 18,
+   "en-indic (dedicated)": {
+    "bleu": 16.9,
+    "chrf++": 48.4
+   },
+   "indic-indic (fed English)": {
+    "bleu": 10.6,
+    "chrf++": 40.5
+   }
+  }
+ },
+ "overall": {
+  "en-indic (dedicated)": {
+   "bleu": 23.1,
+   "chrf++": 55.1,
+   "ms_per_sentence": 808
+  },
+  "indic-indic (fed English)": {
+   "bleu": 13.4,
+   "chrf++": 44.6,
+   "ms_per_sentence": 849
+  }
+ },
+ "command": "python scripts/evaluate_en_to_indic.py"
+}

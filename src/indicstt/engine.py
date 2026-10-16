@@ -41,6 +41,7 @@ class EngineConfig:
     asr_tier: str = "int8"  # int8 (high-end) | int4mixed (low-end) | fp32 (reference only)
     asr_mode: str = "rnnt"  # rnnt (more accurate) | ctc (faster)
     lid_tier: str = "int8"  # int8 | fp32
+    lid_ctc: str = "auto"  # auto: CTC check when LID is unsure or a selected language is unknown to it | always
     vad: VADConfig = field(default_factory=VADConfig)
 
 
@@ -145,7 +146,9 @@ class _Stages:
         if self.indic_model is not None and enc is not None and hasattr(self.indic_model, "ctc_language_scores"):
             # Languages AmberNet cannot score (Odia) or same-script pairs: let the ASR CTC scores decide
             indic_sel = [x for x in self.cfg.languages if x in INDIC]
-            if lang != "en" and len(indic_sel) > 1 and (conf < 0.8 or "or" in indic_sel):
+            unsure = conf < 0.8 or any(x not in (lid_result[2] or {}) for x in indic_sel)
+            if not self.cfg.manual_language and lang != "en" and len(indic_sel) > 1 \
+                    and (self.cfg.lid_ctc == "always" or unsure):
                 t = time.perf_counter()
                 ctc = self.indic_model.ctc_language_scores(enc, indic_sel)
                 seg.timings["lid_ctc"] = round((time.perf_counter() - t) * 1000, 1)

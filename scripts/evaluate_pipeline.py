@@ -39,6 +39,8 @@ def main() -> None:
     ap.add_argument("--parts", type=int, default=4)
     ap.add_argument("--tier", default="int8")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--lid-ctc", default="auto", choices=["auto", "always"])
+    ap.add_argument("--name", help="results file suffix (default: tier)")
     args = ap.parse_args()
     rng = random.Random(args.seed)
     gap = np.zeros(16000, dtype=np.float32)
@@ -46,7 +48,7 @@ def main() -> None:
     for prof in args.profiles:
         langs = prof.split(",")
         counts = {x: len(list((ROOT / "data/smoke" / x).glob("*.json"))) for x in langs}
-        eng = Engine(EngineConfig(languages=langs, target_language=None, asr_tier=args.tier))
+        eng = Engine(EngineConfig(languages=langs, target_language=None, asr_tier=args.tier, lid_ctc=args.lid_ctc))
         st = eng.stages
         p_err = p_n = o_err = 0
         lang_ok = lang_n = 0
@@ -85,8 +87,8 @@ def main() -> None:
         out["profiles"][prof] = r
         print(prof, r, flush=True)
     out["command"] = (f"python scripts/evaluate_pipeline.py --profiles {' '.join(args.profiles)} "
-                      f"--clips {args.clips} --parts {args.parts} --tier {args.tier} --seed {args.seed}")
-    (ROOT / "results" / f"pipeline-{args.tier}.json").write_text(json.dumps(out, indent=1))
+                      f"--clips {args.clips} --parts {args.parts} --tier {args.tier} --seed {args.seed} --lid-ctc {args.lid_ctc}")
+    (ROOT / "results" / f"pipeline-{args.name or args.tier}.json").write_text(json.dumps(out, indent=1))
 
 
 if __name__ == "__main__":

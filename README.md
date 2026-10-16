@@ -34,4 +34,17 @@ for seg in eng.transcribe_file("clip.wav"):
     print(seg.seq, seg.language, seg.text, seg.translation, seg.timings)
 ```
 
-Measured numbers live in `results/`; figures in `docs/` are projections.
+## Measured (laptop CPU, INT8, FLEURS smoke set — details in `results/`)
+
+| | |
+|---|---|
+| Indic ASR WER (9 languages, RNN-T) | 19.1% mean (INT4-mixed 19.4%) |
+| English ASR WER | 10.0% |
+| LID, 2–3-language profiles incl. Odia | 97.5–100% |
+| Code-switched pipeline vs oracle | +0 to +2.2 WER |
+| Speech → English, BLEU / chrF++ | 29.4 / 57.6 |
+| Time-to-text after speech ends | 0.81 s (with MT), 1.23 s (English) |
+| Peak RAM, whole engine | 1.85 GB |
+| Models on disk | ASR 675 MB, LID 30 MB, English 44 MB, MT 200–370 MB per direction |
+
+Figures in `docs/` are projections; only `results/` holds measurements.

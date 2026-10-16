@@ -49,6 +49,8 @@ If work gets stuck, read **Decisions**, **Status** and the last log entries firs
 | Engine API `engine.py` | done; English path verified end-to-end; Indic segments tagged `asr_unavailable` until IndicConformer lands |
 | Streamlit UI `app/streamlit_app.py` | done; verified via AppTest (8 segments, RTF 0.07) |
 | Demo clip builder `scripts/make_demo_clip.py` | done → data/demo/ |
+| Code-switched pipeline eval `scripts/evaluate_pipeline.py` | done: gap to oracle 0–2.2 WER, language 94–100% — results/pipeline-and-translation.md |
+| Translation eval `scripts/evaluate_mt.py` | done: speech→en BLEU 29.4 / chrF++ 57.6 (text→en 34.4 / 60.7) |
 | Quantization `scripts/quantize.py` | done: ASR INT8 675 MB (mean WER 19.05%), INT4-mixed 535 MB (19.39%), LID static INT8 30 MB (99.44%). See results/quantization.md |
 | Engine + UI on INT8 IndicConformer | done; tier + decoder selectable in sidebar |
 
@@ -69,4 +71,5 @@ Measured numbers: `results/`.
 - 2026-10-16 — IndicConformer in. Gotchas: (1) upstream preprocessor uses reflect pad + T//hop+1 frames; (2) effective RNN-T SOS is 5632 (upstream ignores config.json's 256); (3) prediction net must get per-language token ids (union ids → 568% WER). User requirement: ship INT8 or lower for every model (FP32 = reference only).
 - 2026-10-16 — Quantized everything to INT8 or lower (user requirement). Key finding: ORT dynamic INT8 on depthwise convs costs +3.4 WER (hi) → those 0.2M weights stay FP32; per-channel scales. LID: dynamic INT8 was 3x slower → static QDQ INT8 is 2.6x faster than FP32. Partial FP32 ref only for hi/gu (user stopped full FP32 run).
 - 2026-10-16 — Odia LID fixed (English-vs-Indic decision when selected language has no AmberNet class): or+en profile 0% → 100% Odia; 6 profiles 97.5–100%. LID cancels the parallel Indic encoder when it says English (ORT RunOptions.terminate): English time-to-text 1.77 → 1.23 s. Real-time benchmark: INT8 time-to-text 0.81 s (Indic+MT), 1.23 s (English); peak RSS 1.85 GB. VAD gain control added; known VAD issue resolved.
-- Next: real-voice code-switch test (needs user recording); optionally full FP32 baseline for remaining 7 languages; ORT minimal-ops build / Android are out of MVP scope.
+- 2026-10-16 — Pipeline vs oracle on 5 code-switched profiles, and speech→English translation quality measured (results/pipeline-and-translation.md).
+- Next: try always-on CTC language check for multi-Indic profiles (ta/te/en is weakest, 93.9%); real-voice test (needs user); optional FP32 baseline for 7 languages; LID model decision (deferred).

@@ -10,7 +10,6 @@ import hashlib
 import html
 import io
 import json
-import os
 import threading
 import time
 from pathlib import Path
@@ -29,7 +28,6 @@ NATIVE = {"hi": "हिन्दी", "gu": "ગુજરાતી", "mr": "म�
           "te": "తెలుగు", "or": "ଓଡ଼ିଆ", "bn": "বাংলা", "en": "English"}
 MAX_SECONDS = 120  # per recording / upload, public safeguard
 MAX_CONCURRENT_JOBS = 2
-CLOUD = os.environ.get("ITANTRA_CLOUD") == "1"  # hosted (e.g. Hugging Face Space): no server microphone
 TIERS = [t for t in ("int8", "int4mixed") if (MODELS / f"indic-conformer-{t}").exists()] or ["int8"]
 
 st.set_page_config(page_title="iTantra · Speech to text", page_icon="◐", layout="centered",
@@ -107,8 +105,8 @@ div[data-testid="stTabs"] button p { font-size: .92rem; }
 # ---------------------------------------------------------------- shared resources (one per server)
 @st.cache_resource(show_spinner=False, max_entries=2)
 def engine_loader(tier: str) -> dict:
-    """Loads the shared engine in a background thread so the page renders at once on a cold start
-    (Cloud Run starts the container on the first visit). Visitors see a warming-up card until it's ready."""
+    """Loads the shared engine in a background thread so the page renders at once; a loading card shows until
+    it's ready."""
     state = {"engine": None, "error": None, "stage": "Starting", "t0": time.time()}
 
     def load():
@@ -144,14 +142,13 @@ def warming_up(tier: str) -> bool:
         if state["engine"] is not None:
             st.rerun(scope="app")
         if state["error"]:
-            st.error("The speech engine could not start on this server. Please try again later.")
+            st.error("The speech engine could not start. Check that the models are in models/.")
             return
         secs = int(time.time() - state["t0"])
         st.markdown(
-            f'<div class="empty" style="text-align:left"><b style="color:var(--ink)">Waking up the speech engine…'
-            f'</b><br>{html.escape(state["stage"])} · {secs} s<br><span style="font-size:.82rem">The server sleeps '
-            'when nobody is using it; the first visit loads about 1.7 GB of models (usually 20–40 s). '
-            'Everything after that is fast.</span></div>', unsafe_allow_html=True)
+            f'<div class="empty" style="text-align:left"><b style="color:var(--ink)">Loading the speech engine…'
+            f'</b><br>{html.escape(state["stage"])} · {secs} s<br><span style="font-size:.82rem">About 1.7 GB of '
+            'models load once at start-up (usually 10–20 s).</span></div>', unsafe_allow_html=True)
 
     card()
     return True
@@ -515,10 +512,7 @@ with page_try:
     target = target_opt
 
     # ---------------------------------------------------------------- input
-    tab_names = ["Record", "Upload", "Examples"] + ([] if CLOUD else ["Live mic"])
-    tabs = st.tabs(tab_names)
-    tab_rec, tab_up, tab_ex = tabs[:3]
-    tab_live = tabs[3] if not CLOUD else None
+    tab_rec, tab_up, tab_ex, tab_live = st.tabs(["Record", "Upload", "Examples", "Live mic"])
 
     with tab_rec:
         rec = st.audio_input("Record", label_visibility="collapsed")
@@ -565,18 +559,17 @@ with page_try:
         else:
             st.markdown('<div class="empty">No examples on this device.</div>', unsafe_allow_html=True)
 
-    if tab_live is not None:  # the server's own microphone: only meaningful on a device you stand at
-        with tab_live:
-            st.caption("Uses the microphone of the device running iTantra. Text appears after each pause.")
-            a, b = st.columns(2)
-            start = a.button("Start listening", type="primary", width="stretch")
-            if b.button("Stop", width="stretch"):
-                stop_live()
-            if start:
-                stop_live()
-                src = MicSource()
-                st.session_state["live_source"] = src
-                run_job(engine, src, target, None, "Live microphone")
+    with tab_live:
+        st.caption("Uses the microphone of the device running iTantra. Text appears after each pause.")
+        a, b = st.columns(2)
+        start = a.button("Start listening", type="primary", width="stretch")
+        if b.button("Stop", width="stretch"):
+            stop_live()
+        if start:
+            stop_live()
+            src = MicSource()
+            st.session_state["live_source"] = src
+            run_job(engine, src, target, None, "Live microphone")
 
     # ---------------------------------------------------------------- result
     res = st.session_state.get("result")

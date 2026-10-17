@@ -1,7 +1,7 @@
 """Download every upstream model the engine uses into models/.
 
 Usage: python scripts/fetch_models.py [--only NAME ...]
-       python scripts/fetch_models.py --prepared OWNER/REPO   (built models, e.g. on the Hugging Face Space)
+       python scripts/fetch_models.py --prepared zxnjxd/itantra-stt-models   (ready-built INT8 models, public)
 Re-running is a no-op for files already present. Gated repos need the HF account to have
 accepted the access conditions (token is read from HF_TOKEN or the cached login).
 """

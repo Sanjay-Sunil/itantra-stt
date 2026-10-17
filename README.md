@@ -282,7 +282,7 @@ These came from measuring, not assuming. Each has a result file and the command 
 
 Two ways, both fully on your own machine: the **browser demo** (the models run inside a browser tab, so it is
 the closest thing to the on-device product today) and the **Python reference engine** with its dashboard. Both
-need the built models in `models/` (steps in 9.2; the browser uses the same files).
+need the built models in `models/`: download them ready-built or rebuild them (9.2); the browser uses the same files.
 
 ### 9.1 In a browser tab (on-device)
 
@@ -333,6 +333,17 @@ Tests: `node test/parity_asr.mjs`, `parity_text.mjs`, `parity_mt.mjs` (against P
 ### 9.2 Python reference engine and dashboard
 
 The reference engine runs on a laptop (Linux, Python 3.10+) and powers the dashboard.
+
+**Quick path:** install, then download the ready-built INT8 models (1.7 GB, public, no gated access or NeMo needed):
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e ".[ui,dev]" pyarrow IndicTransToolkit
+.venv/bin/python scripts/fetch_models.py --prepared zxnjxd/itantra-stt-models
+.venv/bin/streamlit run app/streamlit_app.py
+```
+
+**Full path:** rebuild every model from upstream (needs IndicConformer's gated access and NeMo for language ID):
 
 ```bash
 python3 -m venv .venv

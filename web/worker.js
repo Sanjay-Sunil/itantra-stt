@@ -84,7 +84,9 @@ async function processQueue() {
       await engine.process(seg);
       const after = [...rt.runStats.values()].reduce((a, s) => a + s.macs, 0);
       const { audio, ...rest } = seg;
-      post({ type: "segment", job, seg: { ...rest, durationMs: (audio.length / 16000) * 1000, macs: after - before },
+      // time-to-text: part closed → text ready, including any wait behind earlier parts
+      post({ type: "segment", job, seg: { ...rest, durationMs: (audio.length / 16000) * 1000, macs: after - before,
+        timeToText: performance.now() - seg.finalizedAt },
         queued: queue.length, stats: stats() });
     }
   } catch (e) {
@@ -94,6 +96,7 @@ async function processQueue() {
 
 async function onAudio(chunk) {
   const segs = await engine.push(chunk);
+  for (const s of segs) s.finalizedAt = performance.now(); // voice detection closed the part (0.4 s after speech ended)
   post({ type: "vad", prob: engine.segmenter.lastProb, triggered: engine.segmenter.triggered });
   if (segs.length) { queue.push(...segs); post({ type: "queued", queued: queue.length }); drain(); }
 }
@@ -129,7 +132,9 @@ self.onmessage = async ({ data: m }) => {
       chain(() => onAudio(m.chunk));
     } else if (m.type === "flush") {
       chain(async () => {
-        queue.push(...engine.flush());
+        const rest = engine.flush();
+        for (const s of rest) s.finalizedAt = performance.now();
+        queue.push(...rest);
         await drain();
         const trace = Float32Array.from(engine.vadTrace);
         engine.resetStream();

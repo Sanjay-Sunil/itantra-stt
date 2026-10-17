@@ -1,6 +1,6 @@
 // Page: setup + model loading, three views (Try it, Language test, How it works), compute panel.
 import { LANGUAGES, requiredModels } from "./lib/engine.js";
-import { compose, loadClips, refFor } from "./ui/samples.js";
+import { compose, loadClips, refFor, parseWav } from "./ui/samples.js";
 import { renderLidTest, LANG_COLOR } from "./ui/langtest.js";
 import { renderHow } from "./ui/how.js";
 
@@ -164,15 +164,27 @@ worker.onmessage = ({ data: m }) => {
 };
 
 /** Run one audio buffer through a view's configuration. */
-async function run(name, cfg, audio, { refs = null, url = null } = {}) {
-  job = { name, refs, segs: [], total: audio.length / 16000 };
+async function run(name, cfg, audio, { refs = null, url = null, realtime = false } = {}) {
+  job = { name, refs, segs: [], total: audio.length / 16000, live: realtime };
   const player = name === "lid" ? $("#lid-player") : $("#player");
   if (url) { player.src = url; player.hidden = false; }
   if (name === "try") { $("#segments").innerHTML = ""; tryRefs = refs; }
   else $("#lid-results").innerHTML = `<p class="empty">Analysing…</p>`;
   await new Promise((r) => { job.started = r; worker.postMessage({ type: "start", job: name, cfg }); });
-  sendAudio(audio);
+  if (realtime) await sendRealtime(audio);
+  else sendAudio(audio);
   await new Promise((r) => { job.done = r; worker.postMessage({ type: "flush" }); });
+}
+
+// feed a buffer at speaking pace in 32 ms chunks, like a microphone (latency measurements)
+async function sendRealtime(f32) {
+  const t0 = performance.now();
+  for (let i = 0, k = 0; i < f32.length; i += 512, k++) {
+    const c = f32.slice(i, i + 512);
+    worker.postMessage({ type: "audio", chunk: c }, [c.buffer]);
+    const wait = t0 + (k + 1) * 32 - performance.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  }
 }
 
 // ---------------------------------------------------------------- Try it
@@ -190,6 +202,7 @@ function addSegment(s) {
     <div class="meta"><span class="chip" style="--c:${LANG_COLOR[s.language]}">${LANGUAGES[s.language] || s.language}</span>
       <span>${fmtT(s.startMs)}–${fmtT(s.endMs)}</span>
       <span>${(t.total / 1000).toFixed(2)} s · ${(s.macs / 1e9).toFixed(1)} GMAC</span>
+      ${job?.live ? `<span title="from the pause being detected to text on screen">text ${(s.timeToText / 1000).toFixed(2)} s after the pause</span>` : ""}
       ${ref && ref.language !== s.language ? `<span class="flag">actual: ${LANGUAGES[ref.language]}</span>` : ""}
       ${s.flags.map((f) => `<span class="flag">${f.replace("_", " ")}</span>`).join("")}</div>
     <div class="text" lang="${s.language}">${esc(s.text || "—")}</div>
@@ -320,7 +333,7 @@ async function toggleMic(name, button) {
     return;
   }
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
-  job = { name, refs: null, segs: [], total: null };
+  job = { name, refs: null, segs: [], total: null, live: true };
   if (name === "try") { $("#segments").innerHTML = ""; tryRefs = null; }
   await new Promise((r) => { job.started = r; worker.postMessage({ type: "start", job: name, cfg: name === "lid" ? lidCfg() : cfgLoaded }); });
   let ctx;
@@ -353,4 +366,4 @@ function onlinePill() {
 }
 addEventListener("online", onlinePill);
 addEventListener("offline", onlinePill);
-window.itantra = { run, compose, cfg: () => cfgLoaded }; // test hook (test/browser_e2e.mjs)
+window.itantra = { run, compose, parseWav, cfg: () => cfgLoaded, segs: allSegs }; // test hook (test/browser_e2e.mjs)

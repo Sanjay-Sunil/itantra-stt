@@ -60,6 +60,30 @@ try {
   };
 
   // Try it: sample assembled for the selected languages (OFFLINE=1: network cut after loading)
+  if (process.env.REALTIME) {
+    // latency + memory: stream a clip at speaking pace (32 ms chunks) and time each part from pause to text
+    const clip = process.env.REALTIME === "1" ? "samples/mixed_en_hi_ta.wav" : process.env.REALTIME;
+    await evaluate(`fetch("${clip}").then((r) => r.arrayBuffer()).then((b) => { window.__a = window.itantra.parseWav(b); return 1; })`);
+    const n0 = await evaluate("window.itantra.segs.length");
+    await evaluate("window.itantra.run('try', window.itantra.cfg(), window.__a, { realtime: true }).then(() => 1)");
+    const segs = await evaluate(`JSON.stringify(window.itantra.segs.slice(${n0}).map((s) => [s.language, s.timeToText, s.timings.total]))`);
+    const med = (v) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : null; };
+    const rows = JSON.parse(segs), ind = rows.filter((r) => r[0] !== "en"), en = rows.filter((r) => r[0] === "en");
+    const f = (v) => (v == null ? "–" : `${(v / 1000).toFixed(2)} s`);
+    console.log(`[realtime] ${rows.length} parts; time-to-text Indian→target median ${f(med(ind.map((r) => r[1])))} max ${f(Math.max(...ind.map((r) => r[1])))}` +
+      ` · English median ${f(med(en.map((r) => r[1])))} max ${f(Math.max(...en.map((r) => r[1])))}`);
+    // peak resident memory of the tab's renderer process (page + worker + WebAssembly threads)
+    const procs = fs.readdirSync("/proc").filter((p) => /^\d+$/.test(p)).map((p) => {
+      try { return { cmd: fs.readFileSync(`/proc/${p}/cmdline`, "utf8"), st: fs.readFileSync(`/proc/${p}/status`, "utf8") }; } catch { return null; }
+    }).filter((p) => p && p.cmd.includes(profile) && p.cmd.includes("--type=renderer"));
+    const kb = (st, k) => Number((new RegExp(`${k}:\\s+(\\d+)`).exec(st) || [0, 0])[1]);
+    const peak = Math.max(...procs.map((p) => kb(p.st, "VmHWM"))), now = Math.max(...procs.map((p) => kb(p.st, "VmRSS")));
+    console.log(`[memory] tab renderer peak RSS ${(peak / 1024).toFixed(0)} MB, now ${(now / 1024).toFixed(0)} MB`);
+    await shot("realtime");
+    ws.close();
+    chrome.kill();
+    process.exit(0);
+  }
   if (process.env.MIC) {
     await evaluate("document.querySelector('#mic').click()");
     await sleep(Number(process.env.MIC_SECONDS || 20) * 1000);

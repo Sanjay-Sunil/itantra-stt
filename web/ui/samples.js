@@ -10,7 +10,7 @@ export function loadClips() {
   return clipsP;
 }
 
-function parseWav(buf) {
+export function parseWav(buf) {
   const v = new DataView(buf);
   let off = 12;
   while (off < v.byteLength) {

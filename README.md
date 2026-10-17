@@ -318,6 +318,8 @@ Measured in Chromium 152 on the i7-14650HX laptop, 8 WebAssembly threads
 | All-10-languages clip (61.9 s of speech), with translation | real-time factor 0.61, 664 GMAC | — |
 | ASR word error rate, 9 Indian languages (RNN-T, INT8) | 19.07% | 19.05% |
 | Same, INT4-mixed speech model (140 MB smaller download) | 19.34% | 19.39% |
+| Time-to-text with translation, median (INT8 / INT4-mixed), real-time stream | 2.24 s / 2.64 s | 1.07 s / 2.16 s |
+| Peak memory (INT8 / INT4-mixed) | 1.60 / 1.53 GB (tab) | 1.70 / 1.52 GB (process) |
 | Model load (Hindi + Tamil + English, from cache) | 7.8 s | 2.6 s (ASR only) |
 
 The JavaScript port matches the Python engine stage by stage: audio features bit-exact, language ID 30/30,

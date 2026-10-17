@@ -1,0 +1,196 @@
+{
+ "date": "2026-10-18",
+ "clip": "data/demo/mixed_en_hi_ta.wav (62.7 s, en hi en ta)",
+ "languages": [
+  "hi",
+  "en",
+  "ta"
+ ],
+ "target": "en",
+ "protocol": "streamed at real-time pace in 32 ms chunks; time-to-text = VAD closes the part (speech end + 0.4 s) -> text ready",
+ "browser": {
+  "runtime": "Chromium 152, onnxruntime-web 1.30 wasm, 8 threads, models from Cache Storage",
+  "int8": {
+   "ttt_indic_to_en_s": {
+    "median": 2.24,
+    "max": 4.17
+   },
+   "ttt_en_s": {
+    "max": 2.57
+   },
+   "peak_rss_mb": 1596,
+   "load_s": 7.7
+  },
+  "int4mixed": {
+   "ttt_indic_to_en_s": {
+    "median": 2.64,
+    "max": 4.73
+   },
+   "ttt_en_s": [
+    2.64,
+    2.45
+   ],
+   "peak_rss_mb": 1534,
+   "load_s": 8.5
+  }
+ },
+ "native": {
+  "runtime": "Python engine, onnxruntime 1.31, 2 ASR workers, 4 threads per model",
+  "int8": {
+   "ttt_indic_to_en_s": {
+    "median": 1.072,
+    "max": 1.909
+   },
+   "ttt_en_s": {
+    "median": 1.276,
+    "max": 1.387
+   },
+   "peak_rss_mb": 1695,
+   "load_s": 7.1,
+   "segments": [
+    {
+     "seq": 0,
+     "lang": "en",
+     "audio_s": 7.68,
+     "mt": false,
+     "time_to_text_ms": 1166,
+     "flags": []
+    },
+    {
+     "seq": 1,
+     "lang": "hi",
+     "audio_s": 9.31,
+     "mt": true,
+     "time_to_text_ms": 1909,
+     "flags": []
+    },
+    {
+     "seq": 2,
+     "lang": "en",
+     "audio_s": 10.43,
+     "mt": false,
+     "time_to_text_ms": 1387,
+     "flags": []
+    },
+    {
+     "seq": 3,
+     "lang": "ta",
+     "audio_s": 4.77,
+     "mt": true,
+     "time_to_text_ms": 1124,
+     "flags": []
+    },
+    {
+     "seq": 4,
+     "lang": "ta",
+     "audio_s": 5.18,
+     "mt": true,
+     "time_to_text_ms": 1048,
+     "flags": []
+    },
+    {
+     "seq": 5,
+     "lang": "ta",
+     "audio_s": 2.18,
+     "mt": true,
+     "time_to_text_ms": 608,
+     "flags": []
+    },
+    {
+     "seq": 6,
+     "lang": "ta",
+     "audio_s": 4.58,
+     "mt": true,
+     "time_to_text_ms": 1096,
+     "flags": []
+    },
+    {
+     "seq": 7,
+     "lang": "ta",
+     "audio_s": 5.09,
+     "mt": true,
+     "time_to_text_ms": 960,
+     "flags": []
+    }
+   ]
+  },
+  "int4mixed": {
+   "ttt_indic_to_en_s": {
+    "median": 2.156,
+    "max": 2.611
+   },
+   "ttt_en_s": {
+    "median": 1.393,
+    "max": 1.584
+   },
+   "peak_rss_mb": 1524,
+   "load_s": 6.8,
+   "segments": [
+    {
+     "seq": 0,
+     "lang": "en",
+     "audio_s": 7.68,
+     "mt": false,
+     "time_to_text_ms": 1202,
+     "flags": []
+    },
+    {
+     "seq": 1,
+     "lang": "hi",
+     "audio_s": 9.31,
+     "mt": true,
+     "time_to_text_ms": 2611,
+     "flags": []
+    },
+    {
+     "seq": 2,
+     "lang": "en",
+     "audio_s": 10.43,
+     "mt": false,
+     "time_to_text_ms": 1584,
+     "flags": []
+    },
+    {
+     "seq": 3,
+     "lang": "ta",
+     "audio_s": 4.77,
+     "mt": true,
+     "time_to_text_ms": 1978,
+     "flags": []
+    },
+    {
+     "seq": 4,
+     "lang": "ta",
+     "audio_s": 5.18,
+     "mt": true,
+     "time_to_text_ms": 2152,
+     "flags": []
+    },
+    {
+     "seq": 5,
+     "lang": "ta",
+     "audio_s": 2.18,
+     "mt": true,
+     "time_to_text_ms": 1444,
+     "flags": []
+    },
+    {
+     "seq": 6,
+     "lang": "ta",
+     "audio_s": 4.58,
+     "mt": true,
+     "time_to_text_ms": 2161,
+     "flags": []
+    },
+    {
+     "seq": 7,
+     "lang": "ta",
+     "audio_s": 5.09,
+     "mt": true,
+     "time_to_text_ms": 2353,
+     "flags": []
+    }
+   ]
+  }
+ }
+}

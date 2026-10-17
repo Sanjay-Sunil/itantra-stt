@@ -21,12 +21,15 @@ const POST_NETS = ["hi", "gu", "mr", "kn", "ml", "ta", "te", "or", "bn"].map((l)
 const MT = ["encoder_model.onnx", "encoder_model.onnx.data", "decoder_model.onnx", "decoder_with_past_model.onnx",
   "decoder_shared.onnx.data", "tokenizer_src.json", "tokenizer_tgt.json", "tokenizer_config.json",
   "tokenizer_meta.json", "generation_config.json"];
+// the two speech-model tiers have the same files: INT8 (accurate) and INT4-mixed (smaller)
+const CONFORMER = ["assets/encoder.onnx", "assets/encoder.onnx.data", "assets/ctc_decoder.onnx", "assets/rnnt_decoder.onnx",
+  "assets/joint_enc.onnx", "assets/joint_pred.onnx", "assets/joint_pre_net.onnx", "assets/vocab.json",
+  "assets/language_masks.json", ...POST_NETS];
 const FILES = {
   "silero-vad": ["onnx/model.onnx"],
   "lid-ambernet": ["ambernet.int8.onnx", "labels.json"],
-  "indic-conformer-int8": ["assets/encoder.onnx", "assets/encoder.onnx.data", "assets/ctc_decoder.onnx",
-    "assets/rnnt_decoder.onnx", "assets/joint_enc.onnx", "assets/joint_pred.onnx", "assets/joint_pre_net.onnx",
-    "assets/vocab.json", "assets/language_masks.json", ...POST_NETS],
+  "indic-conformer-int8": CONFORMER,
+  "indic-conformer-int4mixed": CONFORMER,
   "whisper-tiny-en": ["onnx/encoder_model_int8.onnx", "onnx/decoder_model_merged_int8.onnx", "tokenizer.json",
     "tokenizer_config.json"],
   "mt-indic-en": MT, "mt-en-indic": MT, "mt-indic-indic": MT,

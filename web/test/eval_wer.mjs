@@ -1,12 +1,13 @@
 // Word error rate of the browser engine (onnxruntime-web) on the smoke set, same normalisation as
 // src/indicstt/evaluation.py, so it compares directly with results/quantization.md.
-//   node test/eval_wer.mjs [rnnt|ctc] > ../results/browser-asr.json
+//   node test/eval_wer.mjs [rnnt|ctc] [int8|int4mixed] > ../results/browser-asr[-int4mixed].json
 import fs from "fs";
 import path from "path";
 import { nodeRuntime, readWav16k } from "./node_runtime.js";
 import { IndicConformer, INDIC_ASR } from "../lib/asr.js";
 
 const MODE = process.argv[2] || "rnnt";
+const TIER = process.argv[3] || "int8";
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const items = fs.readFileSync(path.join(ROOT, "data/smoke/manifest.jsonl"), "utf8").trim().split("\n").map(JSON.parse)
   .filter((x) => INDIC_ASR.includes(x.language));
@@ -28,7 +29,7 @@ function edits(r, h) {
 }
 
 const rt = nodeRuntime(Number(process.env.THREADS || 8));
-const asr = await IndicConformer.load(rt, { languages: INDIC_ASR });
+const asr = await IndicConformer.load(rt, { tier: TIER });
 const per = {};
 let audioS = 0;
 const t0 = performance.now();
@@ -45,5 +46,5 @@ for (const it of items) {
 const wer = Object.fromEntries(Object.entries(per).map(([k, v]) => [k, +(100 * v.errors / v.words).toFixed(2)]));
 const mean = +(Object.values(wer).reduce((a, b) => a + b, 0) / Object.keys(wer).length).toFixed(2);
 const wall = (performance.now() - t0) / 1000;
-console.log(JSON.stringify({ runtime: "onnxruntime-web (wasm, Node)", mode: MODE, threads: Number(process.env.THREADS || 8),
+console.log(JSON.stringify({ runtime: "onnxruntime-web (wasm, Node)", tier: TIER, mode: MODE, threads: Number(process.env.THREADS || 8),
   clips: items.length, audio_s: +audioS.toFixed(1), wer, mean_wer: mean, rtf: +(wall / audioS).toFixed(3) }, null, 1));

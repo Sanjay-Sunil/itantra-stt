@@ -40,6 +40,15 @@ ASR word error rate on the smoke set (20 FLEURS clips per language, RNN-T, INT8)
 Same accuracy: per-language differences go both ways (from −0.93 kn to +0.81 mr; ±1 point is within noise for 20 clips) and the mean moves by 0.02 points.
 Browser runtime in Node, 8 threads: RTF 0.294 for encoder + RNN-T decode (native: 0.128).
 
+### INT4-mixed speech model (the low-end tier)
+
+Same 180 clips, `node test/eval_wer.mjs rnnt int4mixed` → `browser-asr-int4mixed.json`: mean WER **19.34%** in the
+browser vs **19.39%** native (hi 9.11, gu 17.82, mr 17.74, kn 18.13, ml 25.74, ta 26.61, te 22.03, or 22.40, bn 14.46).
+Download for Hindi + English → English: 871 MB vs 1,011 MB with INT8. Speed in Chromium (8 threads, hi + en sample and
+the 10-language test, 68.5 s of speech): real-time factor 0.46 vs 0.40 with INT8; the speech encoder takes 17.4 s vs
+13.5 s for the same 435 GMAC. As on native x86 (`quantization.md`), the INT4 MatMulNBits kernels save size, not time.
+Live check on the Space with a fresh profile: 871 MB fetched from the Hub in 200 s, language test 10/10.
+
 ## Speed and compute (Chromium, 8 threads, models from Cache Storage)
 
 | Clip | Speech | Compute | Real-time factor | GMAC |

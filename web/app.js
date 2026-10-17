@@ -11,7 +11,8 @@ const [manifest, compute, site] = await Promise.all([fetch("models.json").then((
   fetch("compute.json").then((r) => r.json()), fetch("site.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}))]);
 const MODEL_BASE = params.get("models") || site.modelBase || "./models/";
 const ALL = Object.keys(LANGUAGES);
-const LID_CFG = { languages: ALL, target: null, asrMode: "ctc" }; // language test: every language is a candidate
+// language test: every language is a candidate, with the speech-model tier chosen in the setup
+const lidCfg = () => ({ languages: ALL, target: null, asrMode: "ctc", asrTier: cfgLoaded.asrTier });
 
 const isolated = self.crossOriginIsolated;
 const cores = navigator.hardwareConcurrency || 4;
@@ -37,7 +38,7 @@ $("#threads").innerHTML = Array.from({ length: maxThreads }, (_, i) => i + 1)
   .map((n) => `<option ${n === Math.min(maxThreads, 8) ? "selected" : ""}>${n}</option>`).join("");
 
 const config = () => ({ languages: [...document.querySelectorAll("#langs input:checked")].map((i) => i.value),
-  target: $("#target").value || null, asrMode: $("#mode").value });
+  target: $("#target").value || null, asrMode: $("#mode").value, asrTier: $("#tier").value });
 
 function neededFiles(cfg) {
   const files = [];
@@ -52,6 +53,12 @@ function neededFiles(cfg) {
 const dirSize = Object.fromEntries(Object.entries(manifest).map(([d, fs]) =>
   [d, Object.entries(fs).filter(([f]) => !/joint_post_net_(?!hi)/.test(f)).reduce((a, [, s]) => a + s, 0)]));
 
+// speech-model tiers (sizes for the chosen languages' heads are close enough: shown per tier)
+const tierSize = (t) => Object.values(manifest[`indic-conformer-${t}`] || {}).reduce((a, b) => a + b, 0);
+$("#tier").innerHTML = [["int8", "INT8 · fastest"], ["int4mixed", "INT4-mixed · smaller download"]]
+  .filter(([t]) => manifest[`indic-conformer-${t}`])
+  .map(([t, n]) => `<option value="${t}" ${t === (params.get("tier") || "int8") ? "selected" : ""}>${n} (${mb(tierSize(t))})</option>`).join("");
+
 let cachedUrls = new Set();
 try { cachedUrls = new Set((await (await caches.open("itantra-models-v1")).keys()).map((r) => r.url)); } catch { /* no cache */ }
 
@@ -64,7 +71,7 @@ function showDownload() {
   const cached = files.filter((f) => cachedUrls.has(new URL(MODEL_BASE + f.path, location.href).href)).reduce((a, f) => a + f.size, 0);
   $("#download").innerHTML = `Download <b>${mb(total)}</b>` + (cached ? ` (${mb(cached)} already cached)` : "");
 }
-document.querySelectorAll("#langs input, #target, #mode").forEach((el) => el.addEventListener("change", showDownload));
+document.querySelectorAll("#langs input, #target, #mode, #tier").forEach((el) => el.addEventListener("change", showDownload));
 showDownload();
 // phones and low-memory devices: the full model set may not fit in a browser tab
 if ((navigator.deviceMemory && navigator.deviceMemory < 8) || /Android|iPhone|iPad/i.test(navigator.userAgent))
@@ -114,7 +121,7 @@ worker.onmessage = ({ data: m }) => {
     readyAt = performance.now();
     lastStats = m.stats;
     document.querySelector("#loading .bar").hidden = true;
-    $("#loadtext").textContent = `Ready · ${names(cfgLoaded.languages)}${cfgLoaded.target ? ` → ${LANGUAGES[cfgLoaded.target]}` : ""} · ${sessions.length} models in ${(loadMs / 1000).toFixed(1)} s`;
+    $("#loadtext").textContent = `Ready · ${names(cfgLoaded.languages)}${cfgLoaded.target ? ` → ${LANGUAGES[cfgLoaded.target]}` : ""} · ${cfgLoaded.asrTier === "int4mixed" ? "INT4-mixed" : "INT8"} · ${sessions.length} models in ${(loadMs / 1000).toFixed(1)} s`;
     document.querySelectorAll(".needs-models").forEach((c) => c.setAttribute("aria-disabled", "false"));
     document.querySelectorAll(".needs-models button, .needs-models input").forEach((el) => (el.disabled = false));
     $("#try-sample").textContent = `Play a sample: ${names(cfgLoaded.languages)}`;
@@ -202,12 +209,13 @@ $("#try-sample").addEventListener("click", async () => {
 loadClips();
 
 // ---------------------------------------------------------------- Language test
-$("#lid-all").addEventListener("click", async () => { const s = await compose(ALL, { maxSeconds: 0 }); run("lid", LID_CFG, s.audio, s); });
-$("#lid-mine").addEventListener("click", async () => { const s = await compose(cfgLoaded.languages); run("lid", LID_CFG, s.audio, s); });
+$("#lid-all").addEventListener("click", async () => { const s = await compose(ALL, { maxSeconds: 0 }); run("lid", lidCfg(), s.audio, s); });
+$("#lid-mine").addEventListener("click", async () => { const s = await compose(cfgLoaded.languages); run("lid", lidCfg(), s.audio, s); });
 
 // ---------------------------------------------------------------- How it works
 function drawHow() {
   renderHow($("#how-body"), { segs: allSegs, rs: lastStats?.runStats || {}, size: dirSize, threads: $("#threads").value,
+    tier: cfgLoaded?.asrTier || $("#tier").value,
     target: cfgLoaded?.target ? LANGUAGES[cfgLoaded.target] : null });
 }
 drawHow();
@@ -263,7 +271,7 @@ async function decodeTo16k(buf) {
 }
 
 async function runFile(name, arrayBuffer, url) {
-  run(name, name === "lid" ? LID_CFG : cfgLoaded, await decodeTo16k(arrayBuffer), { url });
+  run(name, name === "lid" ? lidCfg() : cfgLoaded, await decodeTo16k(arrayBuffer), { url });
 }
 $("#file").addEventListener("change", async (e) => e.target.files[0] && runFile("try", await e.target.files[0].arrayBuffer(), URL.createObjectURL(e.target.files[0])));
 $("#lid-file").addEventListener("change", async (e) => e.target.files[0] && runFile("lid", await e.target.files[0].arrayBuffer(), URL.createObjectURL(e.target.files[0])));
@@ -314,7 +322,7 @@ async function toggleMic(name, button) {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   job = { name, refs: null, segs: [], total: null };
   if (name === "try") { $("#segments").innerHTML = ""; tryRefs = null; }
-  await new Promise((r) => { job.started = r; worker.postMessage({ type: "start", job: name, cfg: name === "lid" ? LID_CFG : cfgLoaded }); });
+  await new Promise((r) => { job.started = r; worker.postMessage({ type: "start", job: name, cfg: name === "lid" ? lidCfg() : cfgLoaded }); });
   let ctx;
   try { ctx = new AudioContext({ sampleRate: 16000 }); } catch { ctx = new AudioContext(); }
   const url = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));

@@ -297,8 +297,9 @@ npm run build        # vendors ONNX Runtime Web + tokenizers, writes models.json
 npm run serve        # http://localhost:8080 (sends the COOP/COEP headers multi-threaded WebAssembly needs)
 ```
 
-Pick the speaker's languages and the listener's language; the page shows the download size first and fetches only
-those models (Hindi + English → English: about 1 GB). It then runs the same pipeline as the Python engine
+Pick the speaker's languages, the listener's language and the speech-model tier (INT8, or the smaller INT4-mixed);
+the page shows the download size first and fetches only those models (Hindi + English → English: about 1 GB with INT8,
+871 MB with INT4-mixed). It then runs the same pipeline as the Python engine
 (VAD → language ID → IndicConformer or Whisper → IndicTrans2) in a Web Worker with ONNX Runtime Web
 (WebAssembly, SIMD, multi-threaded). Models are kept in the browser's Cache Storage, so the next visit loads
 without downloading. Once loaded, **switch the network off: it keeps transcribing.**
@@ -316,6 +317,7 @@ Measured in Chromium 152 on the i7-14650HX laptop, 8 WebAssembly threads
 | English + Hindi + Tamil demo clip (49.5 s of speech), with translation | real-time factor 0.41, 434 GMAC | — |
 | All-10-languages clip (61.9 s of speech), with translation | real-time factor 0.61, 664 GMAC | — |
 | ASR word error rate, 9 Indian languages (RNN-T, INT8) | 19.07% | 19.05% |
+| Same, INT4-mixed speech model (140 MB smaller download) | 19.34% | 19.39% |
 | Model load (Hindi + Tamil + English, from cache) | 7.8 s | 2.6 s (ASR only) |
 
 The JavaScript port matches the Python engine stage by stage: audio features bit-exact, language ID 30/30,

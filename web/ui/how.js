@@ -19,7 +19,7 @@ const defs = `<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" marker
   <path d="M0,0 L10,5 L0,10 z" class="d-head"/></marker></defs>`;
 
 /** segs: all processed segments; rs: run stats per label; size: bytes per model dir */
-export function renderHow(el, { segs, rs, size, threads, target }) {
+export function renderHow(el, { segs, rs, size, threads, target, tier = "int8" }) {
   const ind = segs.filter((s) => s.language !== "en"), en = segs.filter((s) => s.language === "en");
   const t = (list, k) => median(list.map((s) => s.timings[k]));
   const macs = (...k) => k.reduce((a, x) => a + (rs[x]?.macs || 0), 0);
@@ -30,7 +30,7 @@ export function renderHow(el, { segs, rs, size, threads, target }) {
     ${box(6, 108, 104, 84, "Audio in", "mic or file", "", "muted", "16 kHz mono")}
     ${box(136, 108, 140, 84, "Voice detection", `Silero · ${mb(size["silero-vad"] || 2.2e6)}`, live(ms(t(segs, "vad")), macs("vad")), "", "cuts at 0.4 s pauses")}
     ${box(302, 108, 150, 84, "Language ID", `AmberNet · ${mb(size["lid-ambernet"] || 3e7)}`, live(ms(t(segs, "lid")), macs("lid")), "", "+ speech-model check")}
-    ${box(510, 14, 176, 84, "Indian speech → text", `IndicConformer 600M · ${mb(size["indic-conformer-int8"] || 6.7e8)}`,
+    ${box(510, 14, 176, 84, "Indian speech → text", `IndicConformer 600M ${tier === "int4mixed" ? "INT4" : "INT8"} · ${mb(size[`indic-conformer-${tier}`] || 6.7e8)}`,
       live(ms((t(ind, "encoder") || 0) + (t(ind, "decode") || 0) || null), macs("encoder", "ctc", "rnnt_pred", "rnnt_joint")), "accent", "9 languages, one encoder")}
     ${box(510, 202, 176, 84, "English speech → text", `Whisper tiny · ${mb(size["whisper-tiny-en"] || 4.4e7)}`,
       live(ms((t(en, "encoder") || 0) + (t(en, "decode") || 0) || null), macs("whisper_enc", "whisper_dec")), "", "English parts only")}

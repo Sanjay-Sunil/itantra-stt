@@ -26,6 +26,7 @@ MODEL_FILES = {
     "silero-vad": ["onnx/model.onnx"],
     "lid-ambernet": ["ambernet.int8.onnx", "labels.json"],
     "indic-conformer-int8": ["assets/*"],
+    "indic-conformer-int4mixed": ["assets/*"],
     "whisper-tiny-en": ["onnx/encoder_model_int8.onnx", "onnx/decoder_model_merged_int8.onnx", "*.json", "*.txt"],
     **{d: ["*.onnx", "*.onnx.data", "*.json", "model.SRC", "model.TGT"]
        for d in ("mt-indic-indic", "mt-indic-en", "mt-en-indic")},
@@ -48,6 +49,7 @@ Quantized ONNX models used by the iTantra STT engine and its in-browser demo
 | Folder | Built from | Licence |
 |---|---|---|
 | indic-conformer-int8 | [ai4bharat/indic-conformer-600m-multilingual](https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual), per-channel INT8, depthwise convs FP32 | MIT (© AI4Bharat) |
+| indic-conformer-int4mixed | same model; FFN MatMuls of layers 2–23 block-wise INT4 (MatMulNBits), the rest as INT8 | MIT (© AI4Bharat) |
 | lid-ambernet | [NVIDIA NeMo langid_ambernet](https://catalog.ngc.nvidia.com/orgs/nvidia/nemo/models/langid_ambernet) → ONNX, static INT8 | NVIDIA NGC Terms of Use |
 | whisper-tiny-en | [onnx-community/whisper-tiny.en](https://huggingface.co/onnx-community/whisper-tiny.en) (INT8) | MIT (© OpenAI) |
 | silero-vad | [onnx-community/silero-vad](https://huggingface.co/onnx-community/silero-vad) | MIT |

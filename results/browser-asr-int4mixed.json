@@ -1,0 +1,21 @@
+{
+ "runtime": "onnxruntime-web (wasm, Node)",
+ "tier": "int4mixed",
+ "mode": "rnnt",
+ "threads": 8,
+ "clips": 180,
+ "audio_s": 2297.6,
+ "wer": {
+  "hi": 9.11,
+  "gu": 17.82,
+  "mr": 17.74,
+  "kn": 18.13,
+  "ml": 25.74,
+  "ta": 26.61,
+  "te": 22.03,
+  "or": 22.4,
+  "bn": 14.46
+ },
+ "mean_wer": 19.34,
+ "rtf": 0.38
+}

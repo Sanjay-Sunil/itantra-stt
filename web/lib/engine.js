@@ -37,8 +37,9 @@ export class Engine {
       e.lid = base?.lid || (await AmberNetLID.load(rt));
     }
     if (c.languages.some((l) => INDIC.includes(l))) {
-      if (!base?.indic) onStage("asr");
-      e.indic = base?.indic || (await IndicConformer.load(rt, { tier: c.asrTier }));
+      const reuse = base?.indic?.tier === c.asrTier ? base.indic : null; // only the same speech-model tier
+      if (!reuse) onStage("asr");
+      e.indic = reuse || (await IndicConformer.load(rt, { tier: c.asrTier }));
       // per-language RNN-T heads: only the ones this configuration can use
       if (c.asrMode === "rnnt") for (const l of c.languages) if (INDIC_ASR.includes(l)) await e.indic.postNet(l);
       rt.releaseBuffers();

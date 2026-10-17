@@ -40,6 +40,7 @@ export class IndicConformer {
     const a = `indic-conformer-${tier}/assets/`;
     m.rt = rt;
     m.a = a;
+    m.tier = tier;
     m.encoder = await rt.session(a + "encoder.onnx", { arena: false });
     m.ctc = await rt.session(a + "ctc_decoder.onnx", { arena: false });
     m.pred = await rt.session(a + "rnnt_decoder.onnx");

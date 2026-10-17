@@ -1,0 +1,10 @@
+import fs from 'fs';
+import { logMel, INDIC_CONFORMER_MEL, DEFAULT_MEL, whisperLogMel } from '../lib/features.js';
+const R = process.env.REF;
+const f32 = p => { const b = fs.readFileSync(p); return new Float32Array(b.buffer, b.byteOffset, b.length / 4); };
+const a = f32(R + 'audio.f32');
+const cmp = (name, x, y) => { let md = 0; for (let i = 0; i < y.length; i++) md = Math.max(md, Math.abs(x[i] - y[i])); console.log(name, 'len', x.length, y.length, 'maxdiff', md.toExponential(2)); };
+let t = performance.now();
+cmp('indic', logMel(a, INDIC_CONFORMER_MEL).data, f32(R + 'mel.f32')); console.log(' ms', (performance.now() - t) | 0);
+cmp('lid', logMel(a, DEFAULT_MEL).data, f32(R + 'mel_lid.f32'));
+t = performance.now(); cmp('whisper', whisperLogMel(a), f32(R + 'mel_whisper.f32')); console.log(' ms', (performance.now() - t) | 0);

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iTantra On-Device STT</title>
+<meta name="description" content="Indic speech-to-text and translation running entirely in your browser: no server, audio never leaves the device.">
+<script src="coi-serviceworker.min.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>iTantra <span>on-device speech-to-text</span></h1>
+      <p class="lede">Ten languages, transcribed and translated <strong>inside this browser tab</strong>. The models download once,
+        then everything runs on your CPU. No server sees your audio.</p>
+    </div>
+    <div class="pills" id="pills"></div>
+  </div>
+</header>
+
+<main class="wrap grid">
+  <section class="col-main">
+    <div class="card" id="setup">
+      <h2><span class="step">1</span> Choose languages</h2>
+      <p class="hint">Pick the languages the speaker may use. Only the models they need are downloaded.</p>
+      <div class="langs" id="langs"></div>
+      <div class="row">
+        <label class="field">Translate into
+          <select id="target"></select>
+        </label>
+        <label class="field">Decoder
+          <select id="mode">
+            <option value="rnnt">RNN-T (more accurate)</option>
+            <option value="ctc">CTC (faster)</option>
+          </select>
+        </label>
+        <label class="field">CPU threads
+          <select id="threads"></select>
+        </label>
+      </div>
+      <div class="download" id="download"></div>
+      <button class="primary" id="load">Download &amp; load models</button>
+      <div class="loading" id="loading" hidden>
+        <div class="bar"><div id="loadbar"></div></div>
+        <div class="loadtext" id="loadtext"></div>
+      </div>
+    </div>
+
+    <div class="card" id="input" aria-disabled="true">
+      <h2><span class="step">2</span> Speak or play audio</h2>
+      <div class="controls">
+        <button id="mic" disabled>🎙 Start microphone</button>
+        <label class="button" id="filelabel">Upload audio<input type="file" id="file" accept="audio/*" disabled hidden></label>
+        <button class="ghost sample" data-src="samples/mixed_en_hi_ta.wav" data-langs="en,hi,ta" disabled>Sample: English · Hindi · Tamil</button>
+        <button class="ghost sample" data-src="samples/all10_languages.wav" data-langs="hi,gu,mr,kn,ml,ta,te,or,bn,en" disabled>Sample: all 10 languages</button>
+      </div>
+      <div class="vad">
+        <span class="vadlabel">Voice activity</span>
+        <div class="meter"><div id="vadbar"></div></div>
+        <span class="vadstate" id="vadstate">idle</span>
+      </div>
+      <audio id="player" controls hidden></audio>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">3</span> Transcript</h2>
+      <div id="segments" class="segments"><p class="empty">Segments appear here as each pause in speech is detected.</p></div>
+    </div>
+  </section>
+
+  <aside class="col-side">
+    <div class="card sticky">
+      <h2>Compute on this device</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="v" id="k-audio">0.0 s</div><div class="l">speech processed</div></div>
+        <div class="kpi"><div class="v" id="k-time">0.0 s</div><div class="l">compute time</div></div>
+        <div class="kpi"><div class="v" id="k-rtf">–</div><div class="l">real-time factor</div></div>
+        <div class="kpi"><div class="v" id="k-gmac">0</div><div class="l">GMAC executed</div></div>
+      </div>
+      <p class="hint small">GMAC = billions of multiply-accumulates, counted per model run from the real tensor shapes
+        (<code>scripts/count_macs.py</code>). Real-time factor below 1 means faster than speech.</p>
+      <table class="models" id="models">
+        <thead><tr><th>Stage</th><th>Runs</th><th>Time</th><th>GMAC</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <dl class="facts" id="facts"></dl>
+    </div>
+  </aside>
+</main>
+
+<footer class="wrap foot">
+  Models: IndicConformer 600M (AI4Bharat, MIT), AmberNet LID (NVIDIA), whisper-tiny.en (OpenAI, MIT), Silero VAD (MIT),
+  IndicTrans2 distilled (AI4Bharat, MIT); INT8 ONNX, run with ONNX Runtime Web (WebAssembly).
+  Sample clips: FLEURS (CC-BY-4.0).
+</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>

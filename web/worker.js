@@ -5,7 +5,11 @@ import { Runtime } from "./lib/runtime.js";
 import { Engine } from "./lib/engine.js";
 
 const CACHE = "itantra-models-v1";
-let engine = null, rt = null;
+let engine = null, rt = null, job = null;
+let audioChain = Promise.resolve();
+// audio, start and flush run strictly in order; a failure is reported and the chain keeps going
+const chain = (fn) => (audioChain = audioChain.then(fn).catch((e) => post({ type: "error", message: String(e?.message || e) })));
+const pool = {}; // every model loaded so far, shared by the configurations of the different views
 const queue = [];
 let draining = null;
 const net = { downloaded: 0, cached: 0, requestsAfterReady: 0 };
@@ -80,7 +84,7 @@ async function processQueue() {
       await engine.process(seg);
       const after = [...rt.runStats.values()].reduce((a, s) => a + s.macs, 0);
       const { audio, ...rest } = seg;
-      post({ type: "segment", seg: { ...rest, durationMs: (audio.length / 16000) * 1000, macs: after - before },
+      post({ type: "segment", job, seg: { ...rest, durationMs: (audio.length / 16000) * 1000, macs: after - before },
         queued: queue.length, stats: stats() });
     }
   } catch (e) {
@@ -94,7 +98,13 @@ async function onAudio(chunk) {
   if (segs.length) { queue.push(...segs); post({ type: "queued", queued: queue.length }); drain(); }
 }
 
-let audioChain = Promise.resolve();
+async function useConfig(cfg) {
+  const t = performance.now();
+  engine = await Engine.load(rt, cfg, (stage) => post({ type: "stage", stage }), pool);
+  for (const k of ["vad", "lid", "indic", "english", "mt"]) if (engine[k]) pool[k] = engine[k];
+  return performance.now() - t;
+}
+
 self.onmessage = async ({ data: m }) => {
   try {
     if (m.type === "load") {
@@ -102,18 +112,28 @@ self.onmessage = async ({ data: m }) => {
       ort.env.wasm.wasmPaths = new URL("./vendor/", self.location.href).href;
       rt = new Runtime({ ort, Tokenizer, fetchBytes: makeFetch(m.modelBase, m.manifest) });
       rt.compute = m.compute;
-      const t = performance.now();
-      engine = await Engine.load(rt, m.cfg, (stage) => post({ type: "stage", stage }));
+      const loadMs = await useConfig(m.cfg);
       ready = true;
-      post({ type: "ready", loadMs: performance.now() - t, sessions: rt.sessions, stats: stats() });
+      post({ type: "ready", loadMs, sessions: rt.sessions, stats: stats() });
+    } else if (m.type === "start") {
+      // a new stream for one view ("try" or "lid"), possibly with other languages / options
+      chain(async () => {
+        await drain();
+        job = m.job;
+        ready = false; // models fetched for a new configuration are downloads, not transcription traffic
+        const extraMs = await useConfig(m.cfg);
+        ready = true;
+        post({ type: "started", job, extraMs, sessions: rt.sessions, stats: stats() });
+      });
     } else if (m.type === "audio") {
-      audioChain = audioChain.then(() => onAudio(m.chunk));
+      chain(() => onAudio(m.chunk));
     } else if (m.type === "flush") {
-      audioChain = audioChain.then(() => {
-        const segs = engine.flush();
-        queue.push(...segs);
+      chain(async () => {
+        queue.push(...engine.flush());
+        await drain();
+        const trace = Float32Array.from(engine.vadTrace);
         engine.resetStream();
-        return drain().then(() => post({ type: "flushed", stats: stats() }));
+        post({ type: "flushed", job, trace, stats: stats() }, [trace.buffer]);
       });
     }
   } catch (e) {

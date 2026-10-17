@@ -23,22 +23,31 @@ export function requiredModels(cfg) {
 }
 
 export class Engine {
-  /** cfg: { languages, target, manualLanguage, asrMode: "rnnt"|"ctc", lowConfidence, asrTier } */
-  static async load(rt, cfg, onStage = () => {}) {
+  /** cfg: { languages, target, manualLanguage, asrMode: "rnnt"|"ctc", lowConfidence, asrTier }.
+   *  base: an engine whose loaded models are reused (only missing ones are loaded). */
+  static async load(rt, cfg, onStage = () => {}, base = null) {
     const e = new Engine();
     e.rt = rt;
     e.cfg = { asrMode: "rnnt", lowConfidence: 0.5, asrTier: "int8", target: null, manualLanguage: null, ...cfg };
     const c = e.cfg;
-    onStage("vad");
-    e.vad = await SileroVAD.load(rt);
-    if (!c.manualLanguage && c.languages.length > 1) { onStage("lid"); e.lid = await AmberNetLID.load(rt); }
+    if (!base?.vad) onStage("vad");
+    e.vad = base?.vad || (await SileroVAD.load(rt));
+    if (!c.manualLanguage && c.languages.length > 1) {
+      if (!base?.lid) onStage("lid");
+      e.lid = base?.lid || (await AmberNetLID.load(rt));
+    }
     if (c.languages.some((l) => INDIC.includes(l))) {
-      onStage("asr");
-      e.indic = await IndicConformer.load(rt, { tier: c.asrTier, languages: c.languages.filter((l) => INDIC_ASR.includes(l)) });
+      if (!base?.indic) onStage("asr");
+      e.indic = base?.indic || (await IndicConformer.load(rt, { tier: c.asrTier }));
+      // per-language RNN-T heads: only the ones this configuration can use
+      if (c.asrMode === "rnnt") for (const l of c.languages) if (INDIC_ASR.includes(l)) await e.indic.postNet(l);
       rt.releaseBuffers();
     }
-    if (c.languages.includes("en")) { onStage("english"); e.english = await WhisperEnglish.load(rt); }
-    e.mt = new Translator(rt);
+    if (c.languages.includes("en")) {
+      if (!base?.english) onStage("english");
+      e.english = base?.english || (await WhisperEnglish.load(rt));
+    }
+    e.mt = base?.mt || new Translator(rt);
     if (c.target) for (const s of c.languages) if (s !== c.target) { onStage("mt"); await e.mt.bundle(s, c.target); }
     e.resetStream();
     return e;
@@ -48,10 +57,12 @@ export class Engine {
     this.vad.reset();
     const agc = new GainControl();
     this.vadMs = 0;
+    this.vadTrace = []; // speech probability per 32 ms window, for the language-test view
     this.segmenter = new Segmenter(async (w) => {
       const t = performance.now();
       const p = await this.vad.score(agc.apply(w));
       this.vadMs += performance.now() - t;
+      this.vadTrace.push(p);
       return p;
     });
   }

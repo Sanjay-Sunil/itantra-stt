@@ -1,5 +1,6 @@
 // Prepare web/ for serving: vendor the runtime files, write the model manifest, copy the demo clips.
-//   node build.mjs            (models from ../models, or INDICSTT_MODELS_DIR)
+//   node build.mjs [--models-url URL]   (models from ../models, or INDICSTT_MODELS_DIR; URL = where a hosted copy
+//                                        fetches them, e.g. https://huggingface.co/<repo>/resolve/main/)
 import fs from "fs";
 import path from "path";
 
@@ -41,12 +42,37 @@ for (const [dir, files] of Object.entries(FILES)) {
 }
 fs.writeFileSync(path.join(WEB, "models.json"), JSON.stringify(manifest, null, 1));
 
-// 3. demo clips (FLEURS, CC-BY-4.0), if present
+// 3. sample clips (FLEURS, CC-BY-4.0): two short read sentences per language, from which the page assembles a
+//    sample for whatever languages are selected; plus the fixed demo clips if present
 const samples = path.join(WEB, "samples");
-fs.mkdirSync(samples, { recursive: true });
+fs.rmSync(path.join(samples, "clips"), { recursive: true, force: true });
+fs.mkdirSync(path.join(samples, "clips"), { recursive: true });
+const smoke = path.resolve(WEB, "../data/smoke/manifest.jsonl");
+const clips = {};
+if (fs.existsSync(smoke)) {
+  const wavSeconds = (f) => (fs.statSync(f).size - 44) / 32000; // 16 kHz mono PCM16
+  const items = fs.readFileSync(smoke, "utf8").trim().split("\n").map(JSON.parse);
+  for (const lang of ["hi", "gu", "mr", "kn", "ml", "ta", "te", "or", "bn", "en"]) {
+    const pick = items.filter((x) => x.language === lang)
+      .map((x) => ({ ...x, seconds: wavSeconds(path.resolve(WEB, "..", x.audio)) }))
+      .filter((x) => x.seconds >= 3.5 && x.seconds <= 10)
+      .sort((a, b) => Math.abs(a.seconds - 6) - Math.abs(b.seconds - 6)).slice(0, 2);
+    clips[lang] = pick.map((x, i) => {
+      const file = `clips/${lang}_${i}.wav`;
+      fs.copyFileSync(path.resolve(WEB, "..", x.audio), path.join(samples, file));
+      return { file, text: x.text, seconds: +x.seconds.toFixed(2) };
+    });
+  }
+}
+fs.writeFileSync(path.join(samples, "clips.json"), JSON.stringify(clips, null, 1));
 for (const f of ["mixed_en_hi_ta.wav", "all10_languages.wav"]) {
   const src = path.resolve(WEB, "../data/demo", f);
   if (fs.existsSync(src)) fs.copyFileSync(src, path.join(samples, f));
 }
+// 4. hosted copies: where to fetch the models from
+const i = process.argv.indexOf("--models-url");
+if (i > 0) fs.writeFileSync(path.join(WEB, "site.json"), JSON.stringify({ modelBase: process.argv[i + 1] }));
+else fs.rmSync(path.join(WEB, "site.json"), { force: true });
+
 const total = Object.values(manifest).flatMap(Object.values).reduce((a, b) => a + b, 0);
 console.log(`vendor/ ready, models.json: ${Object.keys(manifest).length} models, ${(total / 1e6).toFixed(0)} MB total`);

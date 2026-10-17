@@ -3,3 +3,4 @@ vendor/
 samples/
 models.json
 coi-serviceworker.min.js
+site.json

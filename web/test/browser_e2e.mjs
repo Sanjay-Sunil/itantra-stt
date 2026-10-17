@@ -1,5 +1,5 @@
 // End-to-end test in a real (headless) Chromium: load the page, load models, run a sample clip, read results.
-//   node serve.mjs &   node test/browser_e2e.mjs [url] [sample-button-index]
+//   node serve.mjs &   node test/browser_e2e.mjs [url]     (PROFILE=dir reuses a browser profile; OFFLINE=1; SHOT_DIR=dir)
 // Uses the DevTools protocol directly (Node's built-in WebSocket), so no extra dependencies.
 import { spawn } from "child_process";
 import fs from "fs";
@@ -7,7 +7,6 @@ import os from "os";
 import path from "path";
 
 const URL_ = process.argv[2] || "http://127.0.0.1:8080/?langs=en,hi,ta";
-const SAMPLE = Number(process.argv[3] || 0);
 const CHROME = process.env.CHROME || "/usr/bin/chromium";
 const profile = process.env.PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "itantra-e2e-")); // reuse to test the model cache
 const chrome = spawn(CHROME, ["--headless=new", "--remote-debugging-port=9333", `--user-data-dir=${profile}`,
@@ -48,31 +47,43 @@ try {
   await waitFor("!!document.querySelector('#load') && document.querySelector('#download').textContent.length > 0", 30, "page");
   console.log("isolated:", await evaluate("self.crossOriginIsolated"), "|", await evaluate("document.querySelector('#download').textContent"));
   await evaluate("document.querySelector('#load').click()");
-  const loadS = await waitFor("document.querySelector('#loadtext').textContent.startsWith('ready') || document.querySelector('#loadtext').textContent.startsWith('error')", 900, "models");
+  const loadS = await waitFor("/^(Ready|error)/.test(document.querySelector('#loadtext').textContent)", 900, "models");
   console.log(`models: ${await evaluate("document.querySelector('#loadtext').textContent")} (wall ${loadS.toFixed(1)} s)`);
-  await sleep(3000);
-  console.log("storage:", await evaluate(`(async () => { const e = await navigator.storage.estimate(); const c = await caches.open("itantra-models-v1");
-    const keys = await c.keys(); return JSON.stringify({ usageMB: Math.round(e.usage / 1e6), quotaMB: Math.round(e.quota / 1e6), cachedFiles: keys.length,
-    encoder: keys.some((k) => k.url.endsWith("encoder.onnx.data")) }); })()`));
+  const shot = async (name) => {
+    const r = await cmd("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    const out = path.join(process.env.SHOT_DIR || os.tmpdir(), `itantra-${name}.png`);
+    fs.writeFileSync(out, Buffer.from(r.result.data, "base64"));
+    console.log("screenshot:", out);
+  };
+
+  // Try it: sample assembled for the selected languages (OFFLINE=1: network cut after loading)
   if (process.env.OFFLINE) {
-    // fetch the clip first, then cut the network: transcription must still work
-    await evaluate(`(async () => { const b = document.querySelectorAll('.sample')[${SAMPLE}];
-      window.__clip = [await (await fetch(b.dataset.src)).arrayBuffer(), b.dataset.src]; })()`);
+    await evaluate("window.__s = window.itantra.compose(window.itantra.cfg().languages)");
+    await evaluate("window.__s.then(() => 1)");
     await cmd("Network.enable");
     await cmd("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     console.log("network: OFFLINE, navigator.onLine =", await evaluate("navigator.onLine"));
-    await evaluate("window.itantra.runFile(window.__clip[0], window.__clip[1])");
-  } else await evaluate(`document.querySelectorAll('.sample')[${SAMPLE}].click()`);
-  const runS = await waitFor("document.querySelector('#vadstate').textContent === 'done'", 900, "transcription");
-  console.log(`transcribed in ${runS.toFixed(1)} s wall`);
-  console.log(await evaluate("[...document.querySelectorAll('.seg')].map(s => s.querySelector('.meta').innerText.replace(/\\n/g,' ') + '\\n   ' + s.querySelector('.text').innerText + (s.querySelector('.tr') ? '\\n   → ' + s.querySelector('.tr').innerText : '')).join('\\n')"));
+    await evaluate("window.__s.then((s) => { window.itantra.run('try', window.itantra.cfg(), s.audio, s); return 1; })");
+  } else await evaluate("document.querySelector('#try-sample').click()");
+  let t = await waitFor("document.querySelector('#vadstate').textContent === 'done'", 900, "try");
+  console.log(`\n[Try it] ${t.toFixed(1)} s wall`);
+  console.log(await evaluate("[...document.querySelectorAll('.seg')].map(s => s.querySelector('.meta').innerText.replace(/\\n/g,' ') + '\\n   ' + s.querySelector('.text').innerText + (s.querySelector('.tr') ? '\\n   → ' + s.querySelector('.tr').innerText : '') + (s.querySelector('.ref') ? '\\n   ' + s.querySelector('.ref').innerText : '')).join('\\n')"));
+  await shot("try");
+
+  if (!process.env.OFFLINE) {
+    // Language test: all 10 languages as candidates
+    await evaluate("document.querySelector('[data-tab=lid]').click(); document.querySelector('#lid-all').click()");
+    t = await waitFor("document.querySelector('#lid-status').textContent === 'done'", 900, "language test");
+    console.log(`\n[Language test] ${t.toFixed(1)} s wall:`, await evaluate("[...document.querySelectorAll('#lid-results .summary > div')].map(d => d.innerText.replace('\\n', ' ')).join(' | ')"));
+    console.log(await evaluate("[...document.querySelectorAll('.lidtable tbody tr')].map(r => [...r.cells].slice(0, 8).map(c => c.innerText).join(' · ')).join('\\n')"));
+    await shot("lid");
+    await evaluate("document.querySelector('[data-tab=how]').click()");
+    await sleep(500);
+    await shot("how");
+  }
   console.log("\nKPIs:", await evaluate("[...document.querySelectorAll('.kpi')].map(k => k.querySelector('.l').innerText + ': ' + k.querySelector('.v').innerText).join(' | ')"));
   console.log(await evaluate("[...document.querySelectorAll('#models tbody tr')].map(r => r.innerText.replace(/\\t/g,'  ')).join('\\n')"));
   console.log(await evaluate("[...document.querySelectorAll('#facts dt')].map(d => d.innerText + ': ' + d.nextElementSibling.innerText).join('\\n')"));
-  const shot = await cmd("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
-  const out = process.env.SHOT || path.join(os.tmpdir(), "itantra-e2e.png");
-  fs.writeFileSync(out, Buffer.from(shot.result.data, "base64"));
-  console.log("screenshot:", out);
 } finally {
   ws.close();
   chrome.kill();

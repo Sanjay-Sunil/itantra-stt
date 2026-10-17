@@ -54,10 +54,18 @@ try {
   console.log("storage:", await evaluate(`(async () => { const e = await navigator.storage.estimate(); const c = await caches.open("itantra-models-v1");
     const keys = await c.keys(); return JSON.stringify({ usageMB: Math.round(e.usage / 1e6), quotaMB: Math.round(e.quota / 1e6), cachedFiles: keys.length,
     encoder: keys.some((k) => k.url.endsWith("encoder.onnx.data")) }); })()`));
-  await evaluate(`document.querySelectorAll('.sample')[${SAMPLE}].click()`);
+  if (process.env.OFFLINE) {
+    // fetch the clip first, then cut the network: transcription must still work
+    await evaluate(`(async () => { const b = document.querySelectorAll('.sample')[${SAMPLE}];
+      window.__clip = [await (await fetch(b.dataset.src)).arrayBuffer(), b.dataset.src]; })()`);
+    await cmd("Network.enable");
+    await cmd("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    console.log("network: OFFLINE, navigator.onLine =", await evaluate("navigator.onLine"));
+    await evaluate("window.itantra.runFile(window.__clip[0], window.__clip[1])");
+  } else await evaluate(`document.querySelectorAll('.sample')[${SAMPLE}].click()`);
   const runS = await waitFor("document.querySelector('#vadstate').textContent === 'done'", 900, "transcription");
   console.log(`transcribed in ${runS.toFixed(1)} s wall`);
-  console.log(await evaluate("[...document.querySelectorAll('.seg')].reverse().map(s => s.querySelector('.meta').innerText.replace(/\\n/g,' ') + '\\n   ' + s.querySelector('.text').innerText + (s.querySelector('.tr') ? '\\n   → ' + s.querySelector('.tr').innerText : '')).join('\\n')"));
+  console.log(await evaluate("[...document.querySelectorAll('.seg')].map(s => s.querySelector('.meta').innerText.replace(/\\n/g,' ') + '\\n   ' + s.querySelector('.text').innerText + (s.querySelector('.tr') ? '\\n   → ' + s.querySelector('.tr').innerText : '')).join('\\n')"));
   console.log("\nKPIs:", await evaluate("[...document.querySelectorAll('.kpi')].map(k => k.querySelector('.l').innerText + ': ' + k.querySelector('.v').innerText).join(' | ')"));
   console.log(await evaluate("[...document.querySelectorAll('#models tbody tr')].map(r => r.innerText.replace(/\\t/g,'  ')).join('\\n')"));
   console.log(await evaluate("[...document.querySelectorAll('#facts dt')].map(d => d.innerText + ': ' + d.nextElementSibling.innerText).join('\\n')"));

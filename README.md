@@ -24,7 +24,7 @@ The engine specification is in [`agent-kit/docs/architecture.md`](agent-kit/docs
 6. [Accuracy](#6-accuracy)
 7. [Progress: current vs final product](#7-progress-current-vs-final-product)
 8. [Engineering findings](#8-engineering-findings)
-9. [Run it](#9-run-it)
+9. [Run it yourself, offline](#9-run-it-yourself-offline)
 10. [Repository layout](#10-repository-layout)
 
 Unless a figure is labelled **measured**, numbers in sections 3–6 are the **final product's targets** from the
@@ -222,7 +222,7 @@ re-read those pages from flash instead of killing the app.
 
 | | Current: reference engine, **measured** on a laptop CPU | Final STT product (target) |
 |---|---|---|
-| Runs on | Python + ONNX Runtime, i7 laptop, CPU only; Streamlit dashboard | Android (Flutter), C++ core, ONNX Runtime Mobile |
+| Runs on | Python + ONNX Runtime, i7 laptop, CPU only; Streamlit dashboard. Same models in a browser tab (ONNX Runtime Web) | Android (Flutter), C++ core, ONNX Runtime Mobile |
 | Speech encoder | 600M, 653 MB INT8 / 511 MB INT4-mixed | 300M distilled, 310 / 210–220 MB |
 | Decode heads | One per language, loaded on demand | One merged head |
 | ASR word error rate (9 Indian languages) | 19.1% INT8 · 19.4% INT4-mixed | 15–18% · 17–20% |
@@ -260,15 +260,69 @@ These came from measuring, not assuming. Each has a result file and the command 
 - **Cancel work you no longer need.** Language ID and the encoder start together. When language ID says English,
   the encoder run is cancelled mid-flight, cutting English time-to-text from 1.77 s to 1.23 s.
   ([`results/engine-latency.md`](results/engine-latency.md))
+- **The browser runs the same models at the same accuracy.** Porting the engine to JavaScript on ONNX Runtime Web
+  kept every stage numerically faithful (features bit-exact, text processing 499/499); the only drift is the
+  WebAssembly INT8 kernels rounding differently (≈0.5% on activations). Mean WER: 19.07% in the browser vs 19.05%
+  native. Matching IndicTrans2's preprocessing meant reproducing two upstream quirks: indic-nlp writes the nukta as
+  the literal text `\u093C`, and its tokenizer pattern silently drops backslash from the punctuation set.
+  ([`results/browser.md`](results/browser.md))
 - **Rejected with data.** Reusing the Indian↔Indian translation model for English input would save ~400 MB but
   measured −10 chrF++ in every language, so it was not adopted.
   ([`results/pipeline-and-translation.md`](results/pipeline-and-translation.md))
 
 ---
 
-## 9. Run it
+## 9. Run it yourself, offline
 
-The current reference engine runs on a laptop (Linux, Python 3.10+) and powers the dashboard.
+Two ways, both fully on your own machine: the **browser demo** (the models run inside a browser tab, so it is
+the closest thing to the on-device product today) and the **Python reference engine** with its dashboard. Both
+need the built models in `models/` (steps in 9.2; the browser uses the same files).
+
+### 9.1 In a browser tab (on-device)
+
+```bash
+cd web
+npm ci
+npm run build        # vendors ONNX Runtime Web + tokenizers, writes models.json from ../models, copies demo clips
+npm run serve        # http://localhost:8080 (sends the COOP/COEP headers multi-threaded WebAssembly needs)
+```
+
+Pick the speaker's languages and the listener's language; the page shows the download size first and fetches only
+those models (Hindi + English → English: about 1 GB). It then runs the same pipeline as the Python engine
+(VAD → language ID → IndicConformer or Whisper → IndicTrans2) in a Web Worker with ONNX Runtime Web
+(WebAssembly, SIMD, multi-threaded). Models are kept in the browser's Cache Storage, so the next visit loads
+without downloading. Once loaded, **switch the network off: it keeps transcribing.**
+
+The side panel shows the computation as it happens: speech processed, compute time, real-time factor, and
+**GMAC** (billions of multiply-accumulates) per stage, counted per model run from the real tensor shapes
+([`scripts/count_macs.py`](scripts/count_macs.py) → `web/compute.json`). It also counts the network requests made
+while transcribing: 0.
+
+Measured in Chromium 152 on the i7-14650HX laptop, 8 WebAssembly threads
+([`results/browser.md`](results/browser.md)):
+
+| | Browser (ONNX Runtime Web) | Python engine (native ONNX Runtime) |
+|---|---|---|
+| English + Hindi + Tamil demo clip (49.5 s of speech), with translation | real-time factor 0.41, 434 GMAC | — |
+| All-10-languages clip (61.9 s of speech), with translation | real-time factor 0.61, 664 GMAC | — |
+| ASR word error rate, 9 Indian languages (RNN-T, INT8) | 19.07% | 19.05% |
+| Model load (Hindi + Tamil + English, from cache) | 7.8 s | 2.6 s (ASR only) |
+
+The JavaScript port matches the Python engine stage by stage: audio features bit-exact, language ID 30/30,
+translation pre/post-processing 499/499 and token ids 29/29 identical. Transcripts differ in about 1 word in 80,
+because the WebAssembly INT8 kernels round differently from the native ones.
+
+To serve it from a static host, copy `web/` (after `npm run build`) and point it at a models URL with
+`?models=https://…/models/` (the model host must allow CORS); `coi-serviceworker` provides cross-origin isolation
+where the page's host cannot set headers.
+
+Tests: `node test/parity_asr.mjs`, `parity_text.mjs`, `parity_mt.mjs` (against Python references),
+`node test/pipeline.mjs <wav> <langs>` (whole pipeline in Node), `npm run e2e` (headless Chromium against a running
+`npm run serve`; `OFFLINE=1` cuts the network after loading).
+
+### 9.2 Python reference engine and dashboard
+
+The reference engine runs on a laptop (Linux, Python 3.10+) and powers the dashboard.
 
 ```bash
 python3 -m venv .venv
@@ -317,6 +371,7 @@ randomized stress test of the scheduler and a concurrent-users test.
 ```
 src/indicstt/      engine: audio, vad, features, lid, asr, english, mt, scheduler, engine, segment, ortutil, evaluation
 app/               Streamlit dashboard
+web/               browser demo: the engine ported to JavaScript (ONNX Runtime Web), page, worker, Node + Chromium tests
 scripts/           fetch, export, quantize, build test sets, evaluate (ASR, LID, pipeline, MT), benchmark, memory
 tests/             unit tests (no downloads needed) and real-model tests
 results/           every measurement with the command that produced it

@@ -119,7 +119,7 @@ worker.onmessage = ({ data: m }) => {
     $("#loadtext").textContent = `ready: ${sessions.length} ONNX models in ${(loadMs / 1000).toFixed(1)} s`;
     $("#input").setAttribute("aria-disabled", "false");
     document.querySelectorAll("#input button, #file").forEach((el) => (el.disabled = false));
-    pills([["ok", `Models loaded · ${cfgLoaded.languages.map((l) => LANGUAGES[l]).join(", ")}`]]);
+    onlinePill();
     lastStats = m.stats;
     renderStats();
   } else if (m.type === "vad") {
@@ -329,3 +329,13 @@ $("#mic").addEventListener("click", async () => {
   $("#mic").classList.add("recording");
   $("#vadstate").textContent = "listening";
 });
+
+// offline indicator: once the models are loaded, the page keeps working with the network off
+function onlinePill() {
+  if (!readyAt) return;
+  pills([["ok", `Models loaded · ${cfgLoaded.languages.map((l) => LANGUAGES[l]).join(", ")}`],
+    navigator.onLine ? ["", "Online: you can disconnect now"] : ["ok", "Offline: still transcribing"]]);
+}
+addEventListener("online", onlinePill);
+addEventListener("offline", onlinePill);
+window.itantra = { runFile }; // test hook (test/browser_e2e.mjs OFFLINE=1)

@@ -66,6 +66,9 @@ function showDownload() {
 }
 document.querySelectorAll("#langs input, #target, #mode").forEach((el) => el.addEventListener("change", showDownload));
 showDownload();
+// phones and low-memory devices: the full model set may not fit in a browser tab
+if ((navigator.deviceMemory && navigator.deviceMemory < 8) || /Android|iPhone|iPad/i.test(navigator.userAgent))
+  $("#device-note").textContent = "This device may run out of memory with many languages: pick one or two, and use the CTC decoder.";
 
 // ---------------------------------------------------------------- tabs
 let tab = "try";

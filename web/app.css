@@ -157,5 +157,6 @@ table.models th:not(:first-child), table.models td:not(:first-child) { text-alig
 .d-no path { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 3 3; }
 .d-no .d-x { stroke: #dc2626; stroke-width: 2.4; stroke-dasharray: none; }
 .zero { color: var(--ok); }
+.device-note { margin: 10px 0 0; }
 .d-label.end { text-anchor: end; }
 .d-sub.note { font-style: italic; }

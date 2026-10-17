@@ -5,6 +5,12 @@ on a phone. It listens to a speaker who mixes **Hindi, Gujarati, Marathi, Kannad
 Odia, Bengali and English** in one conversation, figures out which language each part is in, transcribes it,
 and delivers everything in the **one language the listener chose**.
 
+**Try it in your browser: [huggingface.co/spaces/zxnjxd/itantra-stt-browser](https://huggingface.co/spaces/zxnjxd/itantra-stt-browser).**
+The models run inside the tab, on your own CPU: nothing is sent to a server. The first visit downloads about 1 GB for
+two languages, which is then cached; best on desktop Chrome or Edge. The page has three views: **Try it** (a sample in
+your chosen languages, your microphone, or a file), **Language test** (voice detection and language ID across all 10
+languages), and **How it works** (the pipeline, with the compute each stage just used).
+
 It is the speech-to-text half of iTantra, an offline, peer-to-peer communication app (STT → mesh network → TTS).
 The engine specification is in [`agent-kit/docs/architecture.md`](agent-kit/docs/architecture.md).
 
@@ -279,6 +285,10 @@ the closest thing to the on-device product today) and the **Python reference eng
 need the built models in `models/` (steps in 9.2; the browser uses the same files).
 
 ### 9.1 In a browser tab (on-device)
+
+Hosted copy: [huggingface.co/spaces/zxnjxd/itantra-stt-browser](https://huggingface.co/spaces/zxnjxd/itantra-stt-browser)
+(a static page; models from [zxnjxd/itantra-stt-models](https://huggingface.co/zxnjxd/itantra-stt-models), each under its
+upstream licence). It is published with `scripts/publish_web.py`. To run your own copy locally:
 
 ```bash
 cd web

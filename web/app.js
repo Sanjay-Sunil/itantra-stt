@@ -136,6 +136,8 @@ worker.onmessage = ({ data: m }) => {
     lastStats = m.stats;
     renderStats();
     $("#vadstate").textContent = "done";
+  } else if (m.type === "log") {
+    console.warn(m.message);
   } else if (m.type === "error") {
     $("#loadtext").textContent = `error: ${m.message}`;
     console.error(m.message);

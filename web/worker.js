@@ -34,7 +34,7 @@ function makeFetch(base, manifest) {
     if (!fromCache && cache) {
       const [a, b] = body.tee();
       body = a;
-      cache.put(url, new Response(b, { headers: resp.headers })).catch(() => {});
+      cache.put(url, new Response(b, { headers: resp.headers })).catch((e) => post({ type: "log", message: `cache ${p}: ${e}` }));
     }
     const out = total ? new Uint8Array(total) : null;
     const chunks = [];

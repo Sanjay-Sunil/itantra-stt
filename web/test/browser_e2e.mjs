@@ -9,7 +9,7 @@ import path from "path";
 const URL_ = process.argv[2] || "http://127.0.0.1:8080/?langs=en,hi,ta";
 const SAMPLE = Number(process.argv[3] || 0);
 const CHROME = process.env.CHROME || "/usr/bin/chromium";
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), "itantra-e2e-"));
+const profile = process.env.PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "itantra-e2e-")); // reuse to test the model cache
 const chrome = spawn(CHROME, ["--headless=new", "--remote-debugging-port=9333", `--user-data-dir=${profile}`,
   "--no-first-run", "--autoplay-policy=no-user-gesture-required", "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -50,6 +50,10 @@ try {
   await evaluate("document.querySelector('#load').click()");
   const loadS = await waitFor("document.querySelector('#loadtext').textContent.startsWith('ready') || document.querySelector('#loadtext').textContent.startsWith('error')", 900, "models");
   console.log(`models: ${await evaluate("document.querySelector('#loadtext').textContent")} (wall ${loadS.toFixed(1)} s)`);
+  await sleep(3000);
+  console.log("storage:", await evaluate(`(async () => { const e = await navigator.storage.estimate(); const c = await caches.open("itantra-models-v1");
+    const keys = await c.keys(); return JSON.stringify({ usageMB: Math.round(e.usage / 1e6), quotaMB: Math.round(e.quota / 1e6), cachedFiles: keys.length,
+    encoder: keys.some((k) => k.url.endsWith("encoder.onnx.data")) }); })()`));
   await evaluate(`document.querySelectorAll('.sample')[${SAMPLE}].click()`);
   const runS = await waitFor("document.querySelector('#vadstate').textContent === 'done'", 900, "transcription");
   console.log(`transcribed in ${runS.toFixed(1)} s wall`);

@@ -10,7 +10,10 @@ const URL_ = process.argv[2] || "http://127.0.0.1:8080/?langs=en,hi,ta";
 const CHROME = process.env.CHROME || "/usr/bin/chromium";
 const profile = process.env.PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "itantra-e2e-")); // reuse to test the model cache
 const chrome = spawn(CHROME, ["--headless=new", "--remote-debugging-port=9333", `--user-data-dir=${profile}`,
-  "--no-first-run", "--autoplay-policy=no-user-gesture-required", "about:blank"], { stdio: "ignore" });
+  "--no-first-run", "--autoplay-policy=no-user-gesture-required",
+  // MIC=<wav>: the microphone path, fed from a file through Chromium's fake capture device
+  ...(process.env.MIC ? ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
+    `--use-file-for-fake-audio-capture=${process.env.MIC}%noloop`] : []), "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let targets;
@@ -57,7 +60,11 @@ try {
   };
 
   // Try it: sample assembled for the selected languages (OFFLINE=1: network cut after loading)
-  if (process.env.OFFLINE) {
+  if (process.env.MIC) {
+    await evaluate("document.querySelector('#mic').click()");
+    await sleep(Number(process.env.MIC_SECONDS || 20) * 1000);
+    await evaluate("document.querySelector('#mic').click()");
+  } else if (process.env.OFFLINE) {
     await evaluate("window.__s = window.itantra.compose(window.itantra.cfg().languages)");
     await evaluate("window.__s.then(() => 1)");
     await cmd("Network.enable");

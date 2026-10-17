@@ -41,6 +41,7 @@ export class IndicTrans {
     const L = ids.length;
     const inputIds = rt.i64(ids, [1, L]), mask = rt.i64(Array(L).fill(1), [1, L]);
     const hidden = (await rt.run(label, this.enc, { input_ids: inputIds, attention_mask: mask })).last_hidden_state;
+    rt.count(label, `${this.name}/enc`, L);
     const out = [this.startId];
     let past = null;
     const steps = Math.min(256, 2 * L + 16);
@@ -55,6 +56,7 @@ export class IndicTrans {
             feed[`past_key_values.${i}.${kind}`] = past[`present.${i}.${kind}`];
         res = await rt.run(label, this.decPast, feed);
       }
+      rt.count(label, `${this.name}/dec`, L);
       // decoder_with_past returns only the updated self-attention KV; encoder KV stay from step 0
       past = step === 0 ? res : { ...past, ...res };
       const lg = res.logits, V = lg.dims[2], off = (lg.dims[1] - 1) * V;

@@ -16,6 +16,7 @@ export class AmberNetLID {
     const t = performance.now(), rt = this.rt;
     const { data, frames } = logMel(audio, DEFAULT_MEL);
     const out = await rt.run("lid", this.sess, { features: rt.f32(data, [1, 80, frames]), length: rt.i64([frames], [1]) });
+    rt.count("lid", "lid", frames);
     const lg = out.logits.data;
     let mx = -Infinity;
     for (const v of lg) mx = Math.max(mx, v);
@@ -64,6 +65,7 @@ export class IndicConformer {
     const { data, frames } = logMel(audio, INDIC_CONFORMER_MEL);
     const o = await rt.run("encoder", this.encoder,
       { audio_signal: rt.f32(data, [1, 80, frames]), length: rt.i64([frames], [1]) });
+    rt.count("encoder", "encoder", frames);
     const T = o.outputs.dims[2];
     return { out: o.outputs.data, T, length: Number(o.encoded_lengths.data[0]), ctc: null };
   }
@@ -71,6 +73,7 @@ export class IndicConformer {
   async ctcLogprobs(enc) {
     if (!enc.ctc) {
       const o = await this.rt.run("ctc", this.ctc, { encoder_output: this.rt.f32(enc.out, [1, D, enc.T]) });
+      this.rt.count("ctc", "ctc", enc.T);
       enc.V = o.logprobs.dims[2];
       enc.ctc = o.logprobs.data;
     }
@@ -132,6 +135,7 @@ export class IndicConformer {
     const x = new Float32Array(L * D);
     for (let t = 0; t < L; t++) for (let d = 0; d < D; d++) x[t * D + d] = enc.out[d * T + t];
     const fAll = (await rt.run("rnnt_joint", this.jointEnc, { input: rt.f32(x, [1, L, D]) })).output;
+    rt.count("rnnt_joint", "rnnt_joint_enc", L);
     const J = fAll.dims[2];
     let h = new Float32Array(2 * H), c = new Float32Array(2 * H);
     let last = SOS;
@@ -143,7 +147,8 @@ export class IndicConformer {
         "states.1": rt.f32(h, [2, 1, H]), "onnx::Slice_3": rt.f32(c, [2, 1, H]) });
       const names = this.pred.outputNames; // outputs, prednet_lengths, states, <c>
       const g = o[names[0]]; // (1, 640, 1) → transpose is a no-op for a single step
-      const gp = (await rt.run("rnnt_joint", this.jointPred, { input: rt.f32(g.data, [1, 1, g.dims[1]]) })).output.data;
+      rt.count("rnnt_pred", "rnnt_pred");
+      const gp = (await rt.run("rnnt_pred", this.jointPred, { input: rt.f32(g.data, [1, 1, g.dims[1]]) })).output.data;
       return [gp, Float32Array.from(o[names[2]].data), Float32Array.from(o[names[3]].data)];
     };
     const z = new Float32Array(J);
@@ -154,6 +159,7 @@ export class IndicConformer {
         for (let j = 0; j < J; j++) z[j] = fAll.data[t * J + j] + g[j];
         const zz = (await rt.run("rnnt_joint", this.jointPre, { input: rt.f32(z, [1, 1, J]) })).output;
         const logits = (await rt.run("rnnt_joint", post, { input: zz })).output.data;
+        rt.count("rnnt_joint", "rnnt_joint");
         let tok = 0;
         for (let k = 1; k < logits.length; k++) if (logits[k] > logits[tok]) tok = k;
         if (tok === BLANK) break;

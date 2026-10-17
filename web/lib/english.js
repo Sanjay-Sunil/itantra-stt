@@ -21,6 +21,7 @@ export class WhisperEnglish {
     const t0 = performance.now();
     const hidden = (await rt.run("whisper_enc", this.enc,
       { input_features: rt.f32(whisperLogMel(audio), [1, 80, 3000]) })).last_hidden_state;
+    rt.count("whisper_enc", "whisper_enc");
     const t1 = performance.now();
     const empty = rt.f32(new Float32Array(0), [1, 6, 0, 64]);
     const past = Object.fromEntries(this.pastNames.map((n) => [n, empty]));
@@ -30,6 +31,7 @@ export class WhisperEnglish {
       const res = await rt.run("whisper_dec", this.dec, {
         input_ids: rt.i64(cur, [1, cur.length]), encoder_hidden_states: hidden,
         use_cache_branch: new rt.ort.Tensor("bool", [step > 0], [1]), ...past });
+      rt.count("whisper_dec", "whisper_dec", step + 2);
       const lg = res.logits, V = lg.dims[2], off = (lg.dims[1] - 1) * V;
       let nxt = 0;
       for (let k = 1; k < V; k++) if (lg.data[off + k] > lg.data[off + nxt]) nxt = k;

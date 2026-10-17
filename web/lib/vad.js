@@ -29,6 +29,7 @@ export class SileroVAD {
       state: rt.f32(this.state, [2, 1, 128]),
       sr: rt.i64([SAMPLE_RATE], []),
     });
+    rt.count("vad", "vad");
     this.state = Float32Array.from(out.stateN.data);
     this.context = x.slice(x.length - CONTEXT);
     return out.output.data[0];

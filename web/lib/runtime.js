@@ -19,7 +19,8 @@ export class Runtime {
   constructor({ ort, Tokenizer, fetchBytes }) {
     Object.assign(this, { ort, Tokenizer, fetchBytes });
     this.sessions = []; // { path, bytes, loadMs }
-    this.runStats = new Map(); // label → { runs, ms }
+    this.runStats = new Map(); // label → { runs, ms, macs }
+    this.compute = null; // web/compute.json: MAC polynomials per model, from scripts/count_macs.py
     this._ext = new Map(); // shared external-data buffers (MT decoders share one file)
   }
 
@@ -54,11 +55,22 @@ export class Runtime {
   async run(label, sess, feeds, fetches) {
     const t = performance.now();
     const out = await sess.run(feeds, fetches);
-    const s = this.runStats.get(label) || { runs: 0, ms: 0 };
+    const s = this._stat(label);
     s.runs += 1;
     s.ms += performance.now() - t;
     this.runStats.set(label, s);
     return out;
+  }
+
+  _stat(label) {
+    if (!this.runStats.has(label)) this.runStats.set(label, { runs: 0, ms: 0, macs: 0 });
+    return this.runStats.get(label);
+  }
+
+  /** Add the multiply-accumulates of one run of model `key` at input size x (see scripts/count_macs.py). */
+  count(label, key, x = 0) {
+    const c = this.compute?.[key]?.coef;
+    if (c) this._stat(label).macs += c[0] + c[1] * x + c[2] * x * x;
   }
 
   f32(data, dims) { return new this.ort.Tensor("float32", data, dims); }
